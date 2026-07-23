@@ -38,13 +38,24 @@
   </div>
 </div>
 
+<div id="name-overlay" style="display:none">
+  <div class="auth-card">
+    <div class="auth-logo">&#9654; TAISHAN OS</div>
+    <div class="auth-title">What should we call you?</div>
+    <div class="auth-sub">this shows in your greeting. set once, editable later.</div>
+    <input type="text" id="name-input" class="auth-input" placeholder="Your name" maxlength="40" onkeydown="if(event.key==='Enter')saveDisplayName()">
+    <button class="auth-btn-primary" onclick="saveDisplayName()">CONTINUE</button>
+    <div class="auth-error" id="name-error"></div>
+  </div>
+</div>
+
 <button class="signout-btn" onclick="signOut()">SIGN OUT &#10005;</button>
 
 <div class="app" id="main-app">
   <div class="header">
     <div class="header-left">
       <div class="logo">&#9654; TAISHAN OS v2.9.2 CLOUD</div>
-      <div class="greeting">Good <span id="timeGreet">morning</span>, Taishan</div>
+      <div class="greeting">Good <span id="timeGreet">morning</span>, <span id="userName">there</span></div>
       <div class="date-line" id="dateDisplay">&#8212;</div>
       <div class="sync-label"><span class="sync-dot" id="syncDot"></span><span id="syncLabel">&#8212;</span></div>
     </div>

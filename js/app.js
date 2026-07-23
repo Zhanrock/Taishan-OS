@@ -1,6 +1,8 @@
 function updateHeader() {
   const h = getHour();
   document.getElementById('timeGreet').textContent  = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+  const nameEl = document.getElementById('userName');
+  if (nameEl) nameEl.textContent = getDisplayName() || 'there';
   document.getElementById('dateDisplay').textContent = '\u25B8 ' + todayLabel();
   // set date subtitle in daily tab
   const sub = document.getElementById('di-date-sub');
@@ -28,8 +30,35 @@ function renderAll() {
   renderCountdowns();
   renderDaily();
 }
-async function initApp() {
+function getDisplayName() {
+  return currentUser?.user_metadata?.display_name || '';
+}
+
+function showNamePrompt() {
   document.getElementById('auth-overlay').style.display = 'none';
+  document.getElementById('main-app').style.display = 'none';
+  document.getElementById('name-overlay').style.display = 'flex';
+  document.getElementById('name-input').focus();
+}
+
+async function saveDisplayName() {
+  const input = document.getElementById('name-input');
+  const errEl = document.getElementById('name-error');
+  const name  = input.value.trim();
+  errEl.textContent = '';
+  if (!name) { errEl.textContent = 'Please enter a name.'; return; }
+  const { data, error } = await db.auth.updateUser({ data: { display_name: name } });
+  if (error) { errEl.textContent = error.message; return; }
+  currentUser = data.user;
+  document.getElementById('name-overlay').style.display = 'none';
+  await initApp();
+}
+
+async function initApp() {
+  // First-run: ask the user's name once, then continue.
+  if (!getDisplayName()) { showNamePrompt(); return; }
+  document.getElementById('auth-overlay').style.display = 'none';
+  document.getElementById('name-overlay').style.display = 'none';
   document.getElementById('main-app').style.display = 'block';
   updateHeader();
   await loadAllData();
