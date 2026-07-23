@@ -39,7 +39,7 @@ const NIGHT_CHECKS = [
 const DEFAULT_TASKS = [
   { name:'Review your course/lecture notes',           category:'module',    due:'', priority:'high', note:'' },
   { name:'Read one assigned or relevant paper',        category:'research',  due:'', priority:'high', note:'' },
-  { name:'Check your project/hackathon backlog',       category:'hackathon', due:'', priority:'med',  note:'' },
+  { name:'Check your side-project backlog',            category:'project',   due:'', priority:'med',  note:'' },
   { name:'One admin task (payments, forms, housing)',  category:'personal',  due:'', priority:'med',  note:'' },
   { name:'7-day wake streak \u2014 Phase 2 unlocks!',  category:'personal',  due:'', priority:'med',  note:'' },
 ];
