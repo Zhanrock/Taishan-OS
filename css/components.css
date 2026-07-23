@@ -1,0 +1,14 @@
+.notif { position: fixed; bottom: 24px; right: 24px; background: var(--surface2); border: 1px solid var(--accent); border-radius: 12px; padding: 14px 18px; font-family: var(--mono); font-size: 12px; z-index: 200; transform: translateY(80px); opacity: 0; transition: all 0.3s ease; max-width: 300px; }
+.notif.show { transform: translateY(0); opacity: 1; }
+.notif-title { font-weight: 700; color: var(--accent3); margin-bottom: 2px; }
+.review-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+.review-q { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.review-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-family: var(--mono); font-size: 13px; resize: vertical; min-height: 80px; outline: none; }
+.review-input:focus { border-color: var(--accent); }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 300; display: none; align-items: center; justify-content: center; padding: 20px; }
+.modal-overlay.open { display: flex; }
+.modal-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 12px; animation: popIn 0.2s ease; }
+@keyframes popIn { from { transform: scale(0.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+@media (max-width: 600px) { .notif { bottom: 16px; right: 12px; left: 12px; max-width: unset; font-size: 11px; } .unlock-banner.visible { flex-direction: column; gap: 8px; padding: 16px; } .unlock-icon { font-size: 24px; } }

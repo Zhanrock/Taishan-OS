@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TAISHAN OS</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TAISHAN OS">
+<meta name="application-name" content="TAISHAN OS">
+<meta name="theme-color" content="#0a0a0f">
+<link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;TAISHAN OS&quot;,&quot;short_name&quot;:&quot;TAISHAN OS&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%230a0a0f&quot;,&quot;theme_color&quot;:&quot;%230a0a0f&quot;,&quot;icons&quot;:[{&quot;src&quot;:&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%230a0a0f'/%3E%3Ctext x='96' y='130' font-size='100' text-anchor='middle' fill='%237c6aff'%3E&#9656;%3C/text%3E%3C/svg%3E&quot;,&quot;sizes&quot;:&quot;192x192&quot;,&quot;type&quot;:&quot;image/svg+xml&quot;}]}">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/auth.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/streaks.css">
+<link rel="stylesheet" href="css/tasks.css">
+<link rel="stylesheet" href="css/calendar.css">
+<link rel="stylesheet" href="css/schedule.css">
+<link rel="stylesheet" href="css/daily.css">
+<link rel="stylesheet" href="css/domains.css">
+</head>
+<body>
+
+<div id="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-logo">&#9654; TAISHAN OS CLOUD</div>
+    <div class="auth-title">Welcome back.</div>
+    <div class="auth-sub">your system. all devices. always in sync.</div>
+    <input type="email" id="auth-email" class="auth-input" placeholder="Email address">
+    <input type="password" id="auth-password" class="auth-input" placeholder="Password">
+    <button class="auth-btn-primary" onclick="handleAuth('login')">LOGIN</button>
+    <button class="auth-btn-secondary" onclick="handleAuth('signup')">CREATE ACCOUNT</button>
+    <div class="auth-error" id="auth-error"></div>
+  </div>
+</div>
+
+<button class="signout-btn" onclick="signOut()">SIGN OUT &#10005;</button>
+
+<div class="app" id="main-app">
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">&#9654; TAISHAN OS v2.9.2 CLOUD</div>
+      <div class="greeting">Good <span id="timeGreet">morning</span>, Taishan</div>
+      <div class="date-line" id="dateDisplay">&#8212;</div>
+      <div class="sync-label"><span class="sync-dot" id="syncDot"></span><span id="syncLabel">&#8212;</span></div>
+    </div>
+    <div class="level-badge">
+      <div class="level-label">Current Phase</div>
+      <div class="level-name" id="phaseName">PHASE 1</div>
+      <div class="level-xp" id="phaseXP">0 / 7 days anchored</div>
+      <div class="xp-bar-wrap"><div class="xp-bar" id="phaseBar" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('streaks', this)"><span class="tab-icon">&#128293;</span>Streaks</button>
+    <button class="tab" onclick="switchTab('tasks', this)"><span class="tab-icon">&#10022;</span>Tasks</button>
+    <button class="tab" onclick="switchTab('daily', this)"><span class="tab-icon">&#9670;</span>Daily</button>
+    <button class="tab" id="tab-domains-btn" onclick="switchTab('domains', this)"><span class="tab-icon">&#9673;</span>Domains</button>
+    <button class="tab" onclick="switchTab('calendar', this)"><span class="tab-icon">&#128197;</span>Calendar</button>
+    <button class="tab" onclick="switchTab('schedule', this)"><span class="tab-icon">&#9672;</span>Schedule</button>
+    <button class="tab" onclick="switchTab('review', this)"><span class="tab-icon">&#9678;</span>Review</button>
+  </div>
+
+  <!-- STREAKS -->
+  <div class="panel active" id="panel-streaks">
+    <div class="integrity-card">
+      <div class="integrity-header">
+        <div class="integrity-title">&#9881; System Integrity</div>
+        <div class="integrity-status" id="integrityLabel">LOADING</div>
+      </div>
+      <div class="integrity-score" id="integrityScore">&#8212;</div>
+      <div class="integrity-bar-bg"><div class="integrity-bar" id="integrityBar" style="width:0%"></div></div>
+      <div class="integrity-desc">7-day weighted score across active habits. Wake + Morning anchor the system.</div>
+    </div>
+    <div class="phase-banner">
+      <div class="phase-left">
+        <div class="phase-tag">Progressive Unlock System</div>
+        <div class="phase-title" id="phaseTitle">Phase 1 &#8212; The Anchor</div>
+        <div class="phase-desc" id="phaseDesc">Week 1&#8211;2: Build the foundation. Only 2 habits active.</div>
+      </div>
+      <div class="phase-progress-wrap">
+        <div class="phase-days"><span id="phaseDayCount">Day 0</span><span id="phaseNext">Phase 2 unlocks at 7-day streak</span></div>
+        <div class="phase-bar-bg"><div class="phase-bar-fill" id="phaseBarFill" style="width:0%"></div></div>
+        <div class="phase-habits" id="phaseHabitsText">Active habits: 2 / 6</div>
+      </div>
+    </div>
+    <div class="unlock-banner" id="unlockBanner"><div class="unlock-icon">&#127919;</div><div class="unlock-text"><div class="unlock-title" id="unlockTitle">New habits unlocked!</div><div class="unlock-desc" id="unlockDesc">You hit the threshold. Next phase is active.</div></div></div>
+    <div id="countdownBanners"></div>
+    <div class="streak-grid" id="streakGrid"></div>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Best Streak</div><div class="stat-value" id="statBest" style="color:var(--accent4)">0</div><div class="stat-sub">days, wake time</div></div>
+      <div class="stat-card"><div class="stat-label">Tasks Done Today</div><div class="stat-value" id="statTasks" style="color:var(--accent3)">0</div><div class="stat-sub">out of <span id="statTasksTotal">0</span></div></div>
+      <div class="stat-card"><div class="stat-label">Phase Progress</div><div class="stat-value" id="statPhase" style="color:var(--accent)">1</div><div class="stat-sub">of 3 phases</div></div>
+      <div class="stat-card"><div class="stat-label">Active Habits</div><div class="stat-value" id="statHabits" style="color:var(--accent2)">2</div><div class="stat-sub">of 6 unlocked</div></div>
+    </div>
+    <div class="section-header"><div class="section-title">This Week <span>streak overview</span></div></div>
+    <div class="week-grid" id="weekGrid"></div>
+  </div>
+
+  <!-- TASKS -->
+  <div class="panel" id="panel-tasks">
+    <div class="section-header">
+      <div class="section-title">Tasks &amp; Assignments <span id="taskCount">0 pending</span></div>
+      <button class="btn-add" onclick="toggleAddForm()">+ ADD TASK</button>
+    </div>
+    <div class="add-form" id="addForm">
+      <div style="font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:0.05em;margin-bottom:2px">NEW TASK</div>
+      <div class="form-row">
+        <input class="form-input" id="taskNameInput" placeholder="Task name..." style="flex:2">
+        <select class="form-select" id="taskCatInput"><option value="module">&#128218; Module</option><option value="research">&#128300; Research</option><option value="hackathon">&#9889; Hackathon</option><option value="personal">&#11088; Personal</option></select>
+      </div>
+      <div class="form-row">
+        <div style="display:flex;flex-direction:column;gap:3px;flex:1"><label style="font-size:10px;color:var(--muted);font-family:var(--mono)">DEADLINE DATE (dd/mm/yyyy)</label><input class="form-input" id="taskDueInput" type="text" placeholder="27/03/2026" maxlength="10" style="width:100%"></div>
+        <select class="form-select" id="taskPrioInput" style="align-self:flex-end"><option value="high">&#128308; High</option><option value="med">&#128993; Medium</option><option value="low">&#128994; Low</option></select>
+        <input class="form-input" id="taskNoteInput" placeholder="Notes (optional)" style="flex:2;align-self:flex-end">
+      </div>
+      <div class="form-actions"><button class="btn-cancel" onclick="cancelTaskForm()">Cancel</button><button class="btn-save" onclick="saveTask()">SAVE TASK</button></div>
+    </div>
+    <div class="small-section-label">&#128204; Today's Priority</div>
+    <div class="task-list" id="pinnedTask"></div>
+    <div class="sep"></div>
+    <div class="small-section-label">&#128203; All Tasks</div>
+    <div class="task-list" id="taskList"><div class="empty-state"><div>&#10022;</div>No tasks yet. Add one above.</div></div>
+  </div>
+
+  <!-- DAILY PLANNER + AUTO-GENERATOR -->
+  <div class="panel" id="panel-daily">
+
+    <div class="daily-header-row">
+      <div>
+        <div class="section-title" style="font-family:var(--sans);font-size:1rem;font-weight:700;margin-bottom:2px">Daily Planner <span id="di-date-sub" style="font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:400"></span></div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase">algorithm-generated daily plan</div>
+      </div>
+      <div class="daily-ring-wrap">
+        <svg width="52" height="52" viewBox="0 0 52 52">
+          <circle cx="26" cy="26" r="16" fill="none" stroke="#2a2a3a" stroke-width="4"/>
+          <circle id="di-ring-circle" cx="26" cy="26" r="16" fill="none"
+            stroke="#7c6aff" stroke-width="4"
+            stroke-dasharray="100.5" stroke-dashoffset="100.5"
+            stroke-linecap="round" style="transition:stroke-dashoffset 0.4s ease"/>
+          <text id="di-ring-text" x="26" y="30" text-anchor="middle"
+            fill="#e8e8f0" font-family="Space Mono,monospace" font-size="9" font-weight="700"
+            style="transform:rotate(90deg);transform-origin:26px 26px;">0%</text>
+        </svg>
+        <div class="daily-ring-label">done</div>
+      </div>
+    </div>
+
+    <div class="daily-stats">
+      <div class="daily-stat"><div class="ds-num" id="di-stat-total" style="color:var(--accent)">0</div><div class="ds-lbl">Total</div></div>
+      <div class="daily-stat"><div class="ds-num" id="di-stat-done" style="color:var(--success)">0</div><div class="ds-lbl">Done</div></div>
+      <div class="daily-stat"><div class="ds-num" id="di-stat-high" style="color:var(--accent2)">0</div><div class="ds-lbl">High Pri</div></div>
+      <div class="daily-stat"><div class="ds-num" id="di-stat-left" style="color:var(--accent4)">0</div><div class="ds-lbl">Remaining</div></div>
+    </div>
+
+    <!-- Auto-generate banner -->
+    <div class="di-gen-banner" id="di-gen-banner">
+      <div class="di-gen-banner-title">&#9670; Generate Today's Plan</div>
+      <div class="di-gen-banner-sub">
+        The algorithm scores all your interest domains by priority, urgency from your calendar, and how overdue each one is.<br>
+        Produces a balanced day: work + study + physical + protected leisure. Max 9 tasks.
+      </div>
+      <div class="di-gen-btn-row">
+        <button class="di-gen-btn" id="di-gen-btn" onclick="runDayGenerator()">&#9654; GENERATE MY DAY</button>
+        <button class="di-gen-btn secondary" onclick="document.getElementById('di-gen-banner').style.display='none'">Skip &#8212; I'll add manually</button>
+      </div>
+    </div>
+
+    <!-- Controls row -->
+    <div class="di-regen-row">
+      <button class="di-regen-btn" onclick="rescoreAndRebuild()" title="Re-runs algorithm with current completion data. Keeps done tasks, replaces pending auto-tasks.">&#8635; RE-SCORE &amp; REBUILD</button>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">re-runs with latest completion data</span>
+      <button class="di-regen-btn" onclick="toggleDomainManager()" style="margin-left:auto">&#9881; DOMAINS <span id="di-domain-count" style="color:var(--accent)"></span></button>
+    </div>
+
+    <!-- Domain Manager (hidden by default) -->
+    <div id="di-domain-panel" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:20px;"></div>
+
+    <!-- Manual add — now includes Work category -->
+    <div class="daily-add-card">
+      <div class="dac-label">&#9654; Add Task Manually</div>
+      <div class="daily-add-row">
+        <input class="form-input di-main" id="di-input" placeholder="Add something the algorithm missed...">
+        <input type="time" class="form-input di-time" id="di-time">
+        <select class="form-select" id="di-cat">
+          <option value="work">&#9656; Work</option>
+          <option value="study">&#9656; Study</option>
+          <option value="health">&#9656; Health</option>
+          <option value="personal">&#9656; Personal</option>
+          <option value="leisure">&#9656; Leisure</option>
+          <option value="chore">&#9656; Chore</option>
+          <option value="other">&#9656; Other</option>
+        </select>
+        <select class="form-select" id="di-pri">
+          <option value="medium">&#9632; Medium</option>
+          <option value="high">&#128308; High</option>
+          <option value="low">&#128994; Low</option>
+        </select>
+        <button class="dai-add-btn" onclick="addDailyTask()">+ ADD</button>
+      </div>
+    </div>
+
+    <!-- Filter bar — now includes Work filter -->
+    <div class="daily-filter-bar">
+      <button class="daily-filter-btn active" onclick="setDailyFilter('all',this)">All</button>
+      <button class="daily-filter-btn" onclick="setDailyFilter('pending',this)">Pending</button>
+      <button class="daily-filter-btn" onclick="setDailyFilter('done',this)">Done</button>
+      <button class="daily-filter-btn" onclick="setDailyFilter('high',this)">&#128308; High</button>
+      <button class="daily-filter-btn" onclick="setDailyFilter('work',this)">Work</button>
+      <button class="daily-filter-btn" onclick="setDailyFilter('study',this)">Study</button>
+      <button class="daily-filter-btn" onclick="setDailyFilter('health',this)">Health</button>
+      <button class="daily-filter-btn" onclick="setDailyFilter('leisure',this)">Leisure</button>
+    </div>
+
+    <div id="dailyList"><div class="empty-state"><div>&#9670;</div>Hit GENERATE MY DAY to auto-plan, or add tasks manually above.</div></div>
+  </div>
+
+  <!-- DOMAINS LIBRARY -->
+  <div class="panel" id="panel-domains">
+    <div class="section-header">
+      <div class="section-title">Domain Library <span>plans, links &amp; logs for every activity</span></div>
+    </div>
+    <div id="domains-content"></div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div class="panel" id="panel-calendar">
+    <div class="cal-header">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="calNav(-1)">&#8249;</button>
+        <div class="cal-month" id="calMonthLabel">&#8212;</div>
+        <button class="cal-nav-btn" onclick="calNav(1)">&#8250;</button>
+        <button class="cal-nav-btn" onclick="calGoToday()" style="font-size:10px;width:auto;padding:0 10px;color:var(--accent);border-color:var(--accent)">TODAY</button>
+      </div>
+      <button class="btn-add" onclick="toggleEventForm()">+ ADD EVENT</button>
+    </div>
+    <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:12px;display:flex;gap:14px;flex-wrap:wrap">
+      <span>&#9632; <span style="color:rgba(255,68,68,0.8)">HOT</span> heavy week</span>
+      <span>&#9632; <span style="color:rgba(255,159,106,0.8)">WARM</span> busy</span>
+      <span>&#9632; <span style="color:rgba(255,211,106,0.8)">MILD</span> some load</span>
+      <span>&#9632; <span style="color:rgba(124,106,255,0.7)">COOL</span> light</span>
+    </div>
+    <div class="event-add-form" id="eventAddForm">
+      <div style="font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:0.05em;margin-bottom:4px">NEW EVENT</div>
+      <div class="form-row">
+        <input class="form-input" id="evTitle" placeholder="Event title..." style="flex:2">
+        <select class="form-select" id="evType" onchange="onEvTypeChange()"><option value="meeting">&#128203; Meeting</option><option value="class">&#128218; Class</option><option value="exam">&#127919; Exam</option><option value="deadline">&#128308; Deadline</option><option value="personal">&#11088; Personal</option></select>
+        <select class="form-select" id="evPriority"><option value="normal">Normal</option><option value="high">&#128308; High Priority</option></select>
+      </div>
+      <div class="form-row" id="evDateRow">
+        <div style="display:flex;flex-direction:column;gap:3px;flex:1"><label style="font-size:10px;color:var(--muted);font-family:var(--mono)" id="evDateLabel">DATE (dd/mm/yyyy)</label><input class="form-input" id="evDate" type="text" placeholder="27/03/2026" maxlength="10"></div>
+        <div style="display:flex;flex-direction:column;gap:3px;flex:1"><label style="font-size:10px;color:var(--muted);font-family:var(--mono)">START TIME</label><input class="form-input" id="evTime" type="time"></div>
+        <div style="display:flex;flex-direction:column;gap:3px;flex:1"><label style="font-size:10px;color:var(--muted);font-family:var(--mono)">END TIME</label><input class="form-input" id="evEndTime" type="time"></div>
+      </div>
+      <input class="form-input" id="evNote" placeholder="Notes / location / Zoom link..." style="width:100%">
+      <div id="evRecurringSection" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:var(--accent3);font-family:var(--mono);margin-bottom:10px;letter-spacing:0.05em">&#128197; RECURRING CLASS &#8212; select days</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="evMon" style="accent-color:var(--accent)"> Mon</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="evTue" style="accent-color:var(--accent)"> Tue</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="evWed" style="accent-color:var(--accent)"> Wed</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="evThu" style="accent-color:var(--accent)"> Thu</label>
+          <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="evFri" style="accent-color:var(--accent)"> Fri</label>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:10px;color:var(--muted);font-family:var(--mono)">SEMESTER END DATE (dd/mm/yyyy)</label><input class="form-input" id="evRecurEnd" type="text" placeholder="31/07/2026" maxlength="10" style="width:100%"></div>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:6px">Creates all weekly repeats. Cancel individual classes anytime.</div>
+      </div>
+      <div class="form-actions"><button class="btn-cancel" onclick="cancelEventForm()">Cancel</button><button class="btn-save" onclick="saveEvent()">SAVE EVENT</button></div>
+    </div>
+    <div class="cal-day-panel" id="calDayPanel" style="display:none">
+      <div class="cal-day-title" id="calDayTitle">&#8212;</div>
+      <div id="calDayEvents"></div>
+      <div class="empty-state" id="calDayEmpty" style="display:none;padding:20px 0"><div>&#128197;</div>No events. Tap + ADD EVENT to schedule something.</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="section-header" style="margin-top:8px"><div class="section-title">Upcoming <span>next 14 days</span></div></div>
+    <div class="cal-upcoming" id="calUpcoming"></div>
+  </div>
+
+  <!-- SCHEDULE -->
+  <div class="panel" id="panel-schedule">
+    <div class="section-header">
+      <div class="section-title">Daily Schedule <span>your rhythm</span></div>
+      <button class="btn-add" onclick="addScheduleBlock()">+ ADD BLOCK</button>
+    </div>
+    <div class="schedule-grid" id="scheduleGrid"></div>
+    <div class="schedule-actions"><button class="sched-btn danger" onclick="resetSchedule()">&#8635; RESET TO DEFAULT</button></div>
+    <br>
+    <div class="small-section-label" style="margin-top:12px;">&#9889; Night Protocol Checklist</div>
+    <div class="task-list" id="nightChecklist"></div>
+    <div class="tomorrow-briefing" id="tomorrowBriefing" style="display:none"></div>
+    <div class="card-section">
+      <div class="small-section-label" style="margin-top:24px;">&#127921; Morning Activation Card</div>
+      <div id="morningCardDisplay"></div>
+      <button class="card-draw-btn" id="cardDrawBtn" onclick="drawMorningCard()" style="display:none">&#127924; DRAW TOMORROW'S CARD</button>
+    </div>
+    <div class="sleep-log-box">
+      <div class="small-section-label" style="margin-bottom:6px;">&#128564; Sleep Log</div>
+      <div style="font-size:12px;color:var(--muted);font-family:var(--mono);margin-bottom:4px">Log what time you went to sleep. Affects your Wake Up streak grace rule.</div>
+      <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:2px">&#128994; Before 00:00 &rarr; full streak &nbsp;|&nbsp; &#128993; 00:00&ndash;02:00 &rarr; LATE NIGHT &nbsp;|&nbsp; &#128308; After 02:00 &rarr; GRACE DAY</div>
+      <div class="sleep-log-row">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <label style="font-size:10px;color:var(--muted);font-family:var(--mono)">SLEEP TIME (24h HH:MM)</label>
+          <input type="time" id="sleepTimeInput" class="sleep-log-input">
+        </div>
+        <button class="sleep-log-btn" onclick="logSleep()">LOG SLEEP</button>
+      </div>
+      <div class="sleep-log-status" id="sleepLogStatus"></div>
+    </div>
+    <div id="notifPermBox" style="display:none;margin-top:16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;font-family:var(--mono);font-size:11px;color:var(--muted)">
+      &#128276; Enable browser notifications to get an 11:30pm Night Protocol reminder.
+      <button onclick="requestNotifPermission()" style="margin-left:10px;background:var(--accent);border:none;border-radius:6px;padding:5px 12px;color:#fff;font-family:var(--mono);font-size:10px;cursor:pointer">ENABLE</button>
+    </div>
+  </div>
+
+  <!-- REVIEW -->
+  <div class="panel" id="panel-review">
+    <div class="section-header"><div class="section-title">Weekly Review <span>Sunday ritual</span></div></div>
+    <div class="review-box"><div class="review-q">1. What is my ONE priority task for next week?</div><textarea class="review-input" id="r1" placeholder="Be specific &#8212; one deliverable, not a category..."></textarea></div>
+    <div class="review-box"><div class="review-q">2. What kept tripping me up last week?</div><textarea class="review-input" id="r2" placeholder="Be honest. Phone? Late nights? Unclear priorities?"></textarea></div>
+    <div class="review-box"><div class="review-q">3. What ONE thing will I change this coming week?</div><textarea class="review-input" id="r3" placeholder="One change only. Small and specific."></textarea></div>
+    <div class="review-box"><div class="review-q">4. Streak check &#8212; am I proud of this week?</div><textarea class="review-input" id="r4" placeholder="Reflect on your streaks. What needs protection?"></textarea></div>
+    <button class="btn-save" style="width:100%;padding:14px;font-size:13px;border-radius:12px;" onclick="saveReview()">SAVE THIS WEEK'S REVIEW</button>
+    <div id="pastReviews" style="margin-top:24px;"></div>
+  </div>
+</div>
+
+<div class="notif" id="notif"><div class="notif-title" id="notifTitle">&#8212;</div><div id="notifBody"></div></div>
+
+<script src="js/config.js"></script>
+<script src="js/state.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sleep.js"></script>
+<script src="js/data.js"></script>
+<script src="js/streaks.js"></script>
+<script src="js/tasks.js"></script>
+<script src="js/daily.js"></script>
+<script src="js/domains.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/schedule.js"></script>
+<script src="js/review.js"></script>
+<script src="js/app.js"></script>
+<script>
+function requestNotifPermission() {
+  Notification.requestPermission().then(perm => {
+    document.getElementById('notifPermBox').style.display = 'none';
+    if (perm === 'granted') {
+      notify('\uD83D\uDD14 Notifications enabled', '11:30pm protocol reminder is set.', 'var(--success)');
+      scheduleNightNotification();
+    }
+  });
+}
+function checkNotifPermission() {
+  const box = document.getElementById('notifPermBox');
+  if (!box) return;
+  if (typeof Notification === 'undefined') { box.style.display = 'none'; return; }
+  if (Notification.permission === 'default') box.style.display = 'block';
+  if (Notification.permission === 'granted') { box.style.display = 'none'; scheduleNightNotification(); }
+}
+document.addEventListener('taishanosready', checkNotifPermission);
+</script>
+</body>
+</html>

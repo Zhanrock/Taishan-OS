@@ -1,0 +1,74 @@
+/* ── SCHEDULE, NIGHT PROTOCOL, MORNING CARD, SLEEP LOG ── */
+.schedule-grid { display: grid; grid-template-columns: 60px 1fr; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+.sched-time { padding: 12px 8px; font-family: var(--mono); font-size: 10px; color: var(--muted); text-align: right; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
+.sched-block { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; min-height: 48px; }
+.sched-block-inner { flex: 1; border-radius: 8px; padding: 8px 12px; }
+.sched-block-name { font-size: 13px; font-weight: 600; }
+.sched-block-sub { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--mono); }
+.block-anchor { background: rgba(124,106,255,0.12); border: 1px solid rgba(124,106,255,0.25); }
+.block-deep   { background: rgba(255,106,106,0.10); border: 1px solid rgba(255,106,106,0.2); }
+.block-reset  { background: rgba(106,255,212,0.10); border: 1px solid rgba(106,255,212,0.2); }
+.block-free   { background: rgba(255,211,106,0.08); border: 1px solid rgba(255,211,106,0.15); }
+.current-marker { font-family: var(--mono); font-size: 9px; color: var(--accent); background: rgba(124,106,255,0.15); padding: 2px 6px; border-radius: 4px; letter-spacing: 0.1em; flex-shrink: 0; }
+/* Focus timer button on deep work blocks */
+.sched-focus-btn { background: rgba(255,106,106,0.15); border: 1px solid rgba(255,106,106,0.3); border-radius: 6px; color: var(--accent2); font-size: 14px; width: 28px; height: 28px; cursor: pointer; flex-shrink: 0; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+.sched-focus-btn:hover { background: rgba(255,106,106,0.3); }
+/* Focus timer display */
+.focus-timer-inner { background: linear-gradient(135deg, rgba(255,106,106,0.12), rgba(255,159,106,0.08)); border: 1px solid rgba(255,106,106,0.3); border-radius: 12px; padding: 16px 20px; margin: 4px 0 8px; }
+.focus-timer-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; color: var(--muted); margin-bottom: 8px; }
+.focus-timer-count { font-family: var(--mono); font-size: 48px; font-weight: 700; line-height: 1; margin-bottom: 12px; }
+.focus-timer-bar-bg { height: 4px; background: var(--border); border-radius: 2px; }
+.focus-timer-bar { height: 100%; border-radius: 2px; transition: width 1s linear, background 0.3s; }
+/* Tomorrow's briefing */
+.tomorrow-briefing { background: linear-gradient(135deg, rgba(124,106,255,0.1), rgba(106,255,212,0.06)); border: 1px solid rgba(124,106,255,0.3); border-radius: 14px; padding: 16px 20px; margin-top: 20px; }
+.briefing-header { font-family: var(--mono); font-size: 11px; letter-spacing: 0.15em; color: var(--accent3); text-transform: uppercase; margin-bottom: 12px; font-weight: 700; }
+.briefing-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; font-size: 13px; }
+.briefing-row:last-child { margin-bottom: 0; }
+.briefing-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+.briefing-text { color: var(--text); font-family: var(--mono); font-size: 12px; line-height: 1.4; }
+/* Schedule actions */
+.schedule-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.sched-btn { background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; color: var(--muted); font-family: var(--mono); font-size: 11px; cursor: pointer; transition: all 0.2s; }
+.sched-btn:hover { border-color: var(--accent); color: var(--accent); }
+.sched-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+/* Morning Card */
+.card-section { margin-top: 28px; }
+.card-draw-btn { width: 100%; padding: 16px; border-radius: 12px; background: linear-gradient(135deg, rgba(124,106,255,0.15), rgba(106,255,212,0.1)); border: 1px dashed var(--accent); color: var(--accent); font-family: var(--mono); font-size: 13px; font-weight: 700; cursor: pointer; letter-spacing: 0.05em; transition: all 0.2s; }
+.card-draw-btn:hover { background: rgba(124,106,255,0.25); }
+.morning-card { border-radius: 16px; padding: 24px; margin-top: 16px; position: relative; overflow: hidden; animation: cardReveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.card-cat { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.8; margin-bottom: 6px; }
+.card-task { font-size: 18px; font-weight: 700; line-height: 1.4; margin-bottom: 16px; }
+.card-actions { display: flex; gap: 8px; }
+.card-done-btn { flex: 1; padding: 10px; border-radius: 8px; border: 2px solid; background: transparent; font-family: var(--mono); font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; text-transform: uppercase; }
+.card-redraw-btn { padding: 10px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: var(--muted); font-family: var(--mono); font-size: 11px; cursor: pointer; transition: all 0.2s; }
+.card-redraw-btn:hover { background: rgba(255,255,255,0.1); }
+.card-done-stamp { position: absolute; top: 16px; right: 16px; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; border: 2px solid; opacity: 0.7; letter-spacing: 0.1em; }
+.card-physical { background: linear-gradient(135deg, rgba(255,106,106,0.15), rgba(255,159,106,0.1)); border: 1px solid rgba(255,106,106,0.3); }
+.card-sensory  { background: linear-gradient(135deg, rgba(106,255,212,0.12), rgba(124,106,255,0.08)); border: 1px solid rgba(106,255,212,0.3); }
+.card-mental   { background: linear-gradient(135deg, rgba(124,106,255,0.15), rgba(160,106,255,0.1)); border: 1px solid rgba(124,106,255,0.35); }
+.card-action   { background: linear-gradient(135deg, rgba(255,211,106,0.12), rgba(255,159,106,0.08)); border: 1px solid rgba(255,211,106,0.3); }
+.card-col-physical { color: #ff9f6a; } .card-col-sensory { color: #6affd4; } .card-col-mental { color: #a06aff; } .card-col-action { color: #ffd36a; }
+/* Sleep Log */
+.sleep-log-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-top: 28px; }
+.sleep-log-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-top: 12px; }
+.sleep-log-input { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font-family: var(--mono); font-size: 14px; outline: none; transition: border-color 0.2s; width: 120px; }
+.sleep-log-input:focus { border-color: var(--accent); }
+.sleep-log-btn { background: var(--accent); border: none; border-radius: 8px; padding: 9px 18px; color: #fff; font-family: var(--mono); font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: 0.05em; transition: opacity 0.2s; white-space: nowrap; }
+.sleep-log-btn:hover { opacity: 0.85; }
+.sleep-log-status { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 10px; min-height: 18px; }
+.sleep-log-status.ok    { color: var(--success); }
+.sleep-log-status.late  { color: var(--accent4); }
+.sleep-log-status.grace { color: #ff9f6a; }
+/* Review */
+.review-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+.review-q { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.review-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-family: var(--mono); font-size: 13px; resize: vertical; min-height: 80px; outline: none; }
+.review-input:focus { border-color: var(--accent); }
+@media (max-width: 600px) {
+  .sched-block-sub { display: none; }
+  .sched-block-name { font-size: 12px; }
+  .schedule-grid { grid-template-columns: 50px 1fr; }
+  .schedule-actions { gap: 6px; }
+  .sched-btn { font-size: 10px; padding: 6px 10px; }
+  .focus-timer-count { font-size: 36px; }
+}
