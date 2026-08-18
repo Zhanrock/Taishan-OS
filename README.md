@@ -45,7 +45,7 @@ Every domain gets its own detail page: links (Overleaf, course portals, game acc
 Assignment and project tracker with deadlines, categories (Module, Research, Hackathon, Personal), priority levels, and a pinned "Today's Priority" slot. Countdown banners for anything due in the next 14 days.
 
 ### 📅 Calendar
-Monthly calendar with heat-map intensity (HOT / WARM / MILD / COOL weeks based on event density). Supports one-off and recurring events (e.g. weekly classes for a full semester). Tap any day to see its events. Upcoming 14-day view below the grid. Calendar events feed urgency data into the Day Generator.
+Monthly calendar with heat-map intensity (HOT / WARM / MILD / COOL weeks based on event density). Supports one-off and recurring events (e.g. weekly classes for a full semester, including odd-week / even-week alternating classes counted from the semester start). Tap any day to see its events. Upcoming 14-day view below the grid. Calendar events feed urgency data into the Day Generator.
 
 ### ◆ Schedule
 Your fixed daily time-block template — the rhythm your day runs on. Editable blocks with types: Anchor, Deep Work, Reset, Free. Deep Work blocks have an integrated 25-minute Pomodoro timer that auto-checks your Deep Work streak on completion. Night Protocol checklist + Tomorrow's Briefing + Morning Activation Card system.
