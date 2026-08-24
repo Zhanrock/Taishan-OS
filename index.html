@@ -22,6 +22,7 @@
 <link rel="stylesheet" href="css/schedule.css">
 <link rel="stylesheet" href="css/daily.css">
 <link rel="stylesheet" href="css/domains.css">
+<link rel="stylesheet" href="css/finance.css">
 </head>
 <body>
 
@@ -75,6 +76,7 @@
     <button class="tab" onclick="switchTab('calendar', this)"><span class="tab-icon">&#128197;</span>Calendar</button>
     <button class="tab" onclick="switchTab('schedule', this)"><span class="tab-icon">&#9672;</span>Schedule</button>
     <button class="tab" onclick="switchTab('review', this)"><span class="tab-icon">&#9678;</span>Review</button>
+    <button class="tab" onclick="switchTab('finance', this)"><span class="tab-icon">&#9878;</span>Finance</button>
   </div>
 
   <!-- STREAKS -->
@@ -340,6 +342,37 @@
     <button class="btn-save" style="width:100%;padding:14px;font-size:13px;border-radius:12px;" onclick="saveReview()">SAVE THIS WEEK'S REVIEW</button>
     <div id="pastReviews" style="margin-top:24px;"></div>
   </div>
+
+  <!-- FINANCE -->
+  <div class="panel" id="panel-finance">
+    <div class="section-header">
+      <div class="section-title">Finance <span>this month</span></div>
+      <button class="btn-add" onclick="toggleFinanceAddForm()">+ ADD MANUAL</button>
+    </div>
+    <div class="add-form" id="fi-add-form">
+      <div style="font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:0.05em;margin-bottom:2px">NEW TRANSACTION</div>
+      <div class="form-row">
+        <input class="form-input" id="fi-merchant-input" placeholder="Merchant / description..." style="flex:2">
+        <input class="form-input" id="fi-amount-input" type="number" step="0.01" placeholder="Amount" style="flex:1">
+      </div>
+      <div class="form-row">
+        <input class="form-input" id="fi-date-input" type="date" style="flex:1">
+        <select class="form-select" id="fi-direction-input"><option value="debit">Debit (spent)</option><option value="credit">Credit (received)</option></select>
+        <select class="form-select" id="fi-cat-input"></select>
+      </div>
+      <div class="form-actions"><button class="btn-cancel" onclick="cancelFinanceForm()">Cancel</button><button class="btn-save" onclick="saveManualTransaction()">SAVE TRANSACTION</button></div>
+    </div>
+    <div class="fi-stats-grid">
+      <div class="stat-card"><div class="stat-label">Spent</div><div class="stat-value" id="fi-stat-spent" style="color:var(--accent2)">0.00</div><div class="stat-sub">this month</div></div>
+      <div class="stat-card"><div class="stat-label">Income</div><div class="stat-value" id="fi-stat-income" style="color:var(--success)">0.00</div><div class="stat-sub">this month</div></div>
+      <div class="stat-card"><div class="stat-label">Net</div><div class="stat-value" id="fi-stat-net" style="color:var(--accent4)">0.00</div><div class="stat-sub">income − spent</div></div>
+      <div class="stat-card"><div class="stat-label">Transactions</div><div class="stat-value" id="fi-stat-count" style="color:var(--accent)">0</div><div class="stat-sub">this month</div></div>
+    </div>
+    <div class="small-section-label">&#9673; Spending by Category</div>
+    <div class="fi-cat-breakdown" id="fi-cat-breakdown"></div>
+    <div class="small-section-label">&#128203; All Transactions</div>
+    <div class="fi-txn-list" id="fi-txn-list"><div class="empty-state"><div>&#10022;</div>No transactions yet.</div></div>
+  </div>
 </div>
 
 <div class="notif" id="notif"><div class="notif-title" id="notifTitle">&#8212;</div><div id="notifBody"></div></div>
@@ -356,6 +389,7 @@
 <script src="js/calendar.js"></script>
 <script src="js/schedule.js"></script>
 <script src="js/review.js"></script>
+<script src="js/finance.js"></script>
 <script src="js/app.js"></script>
 <script>
 function requestNotifPermission() {

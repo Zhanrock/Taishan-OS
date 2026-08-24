@@ -2,7 +2,7 @@
 
 > *Your personal operating system. Cloud-synced. Algorithm-driven. Built for a life with too much going on.*
 
-**v2.9.4** · [Live →](https://zhanrock.github.io/Taishan-OS/)
+**v2.9.5** · [Live →](https://zhanrock.github.io/Taishan-OS/)
 
 ---
 
@@ -53,6 +53,9 @@ Your fixed daily time-block template — the rhythm your day runs on. Editable b
 ### ◎ Weekly Review
 Sunday ritual. Four reflection prompts: next week's ONE priority, what tripped you up, what you'll change, and a streak reflection. All reviews saved and viewable.
 
+### ⚛ Finance
+Bank transaction/notification emails get pulled from Gmail on a schedule (`finance-sync/`, runs via GitHub Actions — see that folder), parsed per-bank, auto-categorized, and synced into Supabase. The Finance tab shows this month's spend/income/net, a category breakdown, and the full transaction list with an inline category override. You can also log a transaction manually for anything that doesn't arrive by email (cash, etc).
+
 ---
 
 ## Tech Stack
@@ -95,6 +98,13 @@ user_domains (user_id, domain_id, title, cat, pri, time_slot, duration_mins,
 
 -- Domain completion tracking (drives overdue scoring)
 user_domain_progress (user_id, domain_id, last_done)
+
+-- Bank transactions, synced from Gmail by finance-sync/ (see that folder's README)
+finance_transactions (user_id, external_id, bank, account_mask, txn_date, amount,
+                       currency, direction, merchant, category, raw_subject)
+
+-- Cursor for the finance-sync job — last time Gmail was successfully polled
+finance_sync_state (user_id, last_synced_at)
 ```
 
 ---
@@ -113,7 +123,14 @@ taishan-os/
 │   ├── calendar.css    # Calendar grid, events, heat-map
 │   ├── schedule.css    # Time blocks, focus timer, night protocol
 │   ├── daily.css       # Daily planner, domain manager, generator UI
-│   └── domains.css     # Domain library grid + detail page (blocks, phases)
+│   ├── domains.css     # Domain library grid + detail page (blocks, phases)
+│   └── finance.css     # Finance tab: stat cards, category bars, transaction list
+├── finance-sync/       # Python job (GitHub Actions cron) that pulls bank emails
+│   │                   # from Gmail, parses them, and upserts finance_transactions
+│   ├── sync.py          # entrypoint
+│   ├── parsers/          # one module per bank + registry + unmatched-email logger
+│   ├── categorize.py     # merchant keyword -> category
+│   └── authorize_gmail.py # one-time local OAuth refresh-token setup
 └── js/
     ├── config.js       # Supabase client, habit/schedule/card definitions
     ├── state.js        # Global state object, helpers, utility functions
@@ -129,6 +146,7 @@ taishan-os/
     ├── schedule.js     # Schedule blocks, focus timer, night protocol, sleep log
     ├── review.js       # Weekly review save/load
     ├── sleep.js        # Sleep grace level calculation
+    ├── finance.js      # Finance tab: stats, category breakdown, txn list, manual add
     └── app.js          # Tab switching, initApp(), renderAll()
 ```
 
@@ -207,6 +225,24 @@ create table user_domain_progress (
   unique(user_id, domain_id)
 );
 
+create table finance_transactions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade,
+  external_id text not null,
+  bank text not null, account_mask text,
+  txn_date date not null, amount numeric(12,2) not null,
+  currency text default 'THB', direction text not null,
+  merchant text, category text default 'uncategorized',
+  raw_subject text,
+  created_at timestamptz default now(),
+  unique(user_id, external_id)
+);
+
+create table finance_sync_state (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  last_synced_at timestamptz not null default now()
+);
+
 -- Enable RLS on all tables
 alter table habits enable row level security;
 alter table tasks enable row level security;
@@ -215,6 +251,8 @@ alter table reviews enable row level security;
 alter table daily_tasks enable row level security;
 alter table user_domains enable row level security;
 alter table user_domain_progress enable row level security;
+alter table finance_transactions enable row level security;
+alter table finance_sync_state enable row level security;
 
 -- RLS policies (repeat pattern for each table)
 create policy "Users own their data" on habits for all using (auth.uid() = user_id);
@@ -224,6 +262,8 @@ create policy "Users own their data" on reviews for all using (auth.uid() = user
 create policy "Users own their data" on daily_tasks for all using (auth.uid() = user_id);
 create policy "Users own their data" on user_domains for all using (auth.uid() = user_id);
 create policy "Users own their data" on user_domain_progress for all using (auth.uid() = user_id);
+create policy "Users own their data" on finance_transactions for all using (auth.uid() = user_id);
+create policy "Users own their data" on finance_sync_state for all using (auth.uid() = user_id);
 ```
 
 ---
@@ -232,6 +272,7 @@ create policy "Users own their data" on user_domain_progress for all using (auth
 
 | Version | What changed |
 |---|---|
+| v2.9.5 | Finance tab added: finance-sync/ (GitHub Actions cron) parses bank notification emails from Gmail per-bank and syncs finance_transactions to Supabase; UI shows monthly spend/income/net, category breakdown, transaction list with inline category correction, and manual entry. |
 | v2.9.4 | Domain Library added (per-domain detail pages: links, notes, checklists, progress logs, phased programs). Shipped starter templates (DEFAULT_DOMAINS, DEFAULT_TASKS) genericized — no personal/employer/collaborator specifics live in source anymore, only in each account's own Supabase rows. |
 | v2.9.3 | Domains + lastDone tracking migrated to Supabase; localStorage fully purged |
 | v2.9.2 | Work category added to Daily Planner; domains updated to reflect current life |

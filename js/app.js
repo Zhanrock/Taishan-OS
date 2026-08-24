@@ -18,6 +18,7 @@ function switchTab(tab, el) {
   if (tab === 'calendar') renderCalendar();
   if (tab === 'daily')    renderDaily();
   if (tab === 'domains')  { openDomainId = null; renderDomainLibrary(); }
+  if (tab === 'finance')  renderFinance();
 }
 function renderAll() {
   updateHeader();

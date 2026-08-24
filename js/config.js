@@ -44,6 +44,8 @@ const DEFAULT_TASKS = [
   { name:'7-day wake streak \u2014 Phase 2 unlocks!',  category:'personal',  due:'', priority:'med',  note:'' },
 ];
 const EVENT_COLORS = { meeting:'#7c6aff', deadline:'#ff6a6a', class:'#6affd4', personal:'#ffd36a', exam:'#ff9f6a' };
+const FINANCE_CATEGORIES = ['food','transport','groceries','subscriptions','bills','shopping','entertainment','health','uncategorized','other'];
+const FINANCE_CATEGORY_COLORS = { food:'#ff9f6a', transport:'#6affd4', groceries:'#ffd36a', subscriptions:'#7c6aff', bills:'#ff6a6a', shopping:'#a06aff', entertainment:'#6ab4ff', health:'#6aff9f', uncategorized:'#8a8a9a', other:'#8a8a9a' };
 const MONTH_NAMES  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DOW_NAMES    = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
 const CAT_CLASS    = { Physical:'physical', Sensory:'sensory', Mental:'mental', Action:'action' };

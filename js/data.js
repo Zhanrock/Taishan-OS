@@ -28,6 +28,8 @@ async function loadAllData() {
     state.reviews = reviews || [];
     const { data: events } = await db.from('events').select('*').eq('user_id', uid).order('date', { ascending: true });
     state.events = events || [];
+    const { data: financeTransactions } = await db.from('finance_transactions').select('*').eq('user_id', uid).order('txn_date', { ascending: false });
+    state.financeTransactions = financeTransactions || [];
     setSyncStatus('synced');
   } catch(e) { setSyncStatus('error'); console.error(e); }
   state.prevPhase = state.phase;
@@ -45,5 +47,6 @@ function subscribeRealtime() {
     .on('postgres_changes', { event:'*', schema:'public', table:'tasks',   filter:`user_id=eq.${currentUser.id}` }, () => loadAllData())
     .on('postgres_changes', { event:'*', schema:'public', table:'reviews', filter:`user_id=eq.${currentUser.id}` }, () => loadAllData())
     .on('postgres_changes', { event:'*', schema:'public', table:'events',  filter:`user_id=eq.${currentUser.id}` }, () => loadAllData())
+    .on('postgres_changes', { event:'*', schema:'public', table:'finance_transactions', filter:`user_id=eq.${currentUser.id}` }, () => loadAllData())
     .subscribe();
 }
