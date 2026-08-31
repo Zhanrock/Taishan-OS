@@ -1,7 +1,8 @@
 // Habit time windows (static for now — will be editable later)
-const WAKE_TARGET_HOUR    = 8;
-const WAKE_CUTOFF_HOUR    = 9;
-const MORNING_CUTOFF_HOUR = 9;
+// Morning Routine shares Wake Up's window: check-in only opens once you're
+// actually up, so it should be gated by the same hours.
+const WAKE_TARGET_HOUR = 8;
+const WAKE_CUTOFF_HOUR = 9;
 
 // ── SYSTEM INTEGRITY SCORE ──
 // Weighted % based on active habits checked in over the last 7 days.
@@ -39,11 +40,11 @@ function updateIntegrityUI() {
 
 async function checkStreak(id) {
   const hour = getHour();
-  if (id === 'wake') {
-    if (hour < WAKE_TARGET_HOUR) { notify('\u23F0 Too early!', 'Wake Up check-in opens at ' + WAKE_TARGET_HOUR + ':00.', 'var(--muted)'); return; }
-    if (hour >= WAKE_CUTOFF_HOUR) { notify('\u274C Missed it.', 'Wake Up window closed at ' + WAKE_CUTOFF_HOUR + ':00. Sleep on time tonight.', 'var(--danger)'); return; }
+  if (id === 'wake' || id === 'morning') {
+    const label = id === 'wake' ? 'Wake Up' : 'Morning Routine';
+    if (hour < WAKE_TARGET_HOUR) { notify('\u23F0 Too early!', label + ' check-in opens at ' + WAKE_TARGET_HOUR + ':00.', 'var(--muted)'); return; }
+    if (hour >= WAKE_CUTOFF_HOUR) { notify('\u274C Missed it.', label + ' window closed at ' + WAKE_CUTOFF_HOUR + ':00.' + (id === 'wake' ? ' Sleep on time tonight.' : ''), 'var(--danger)'); return; }
   }
-  if (id === 'morning' && hour >= MORNING_CUTOFF_HOUR) { notify('\u274C Missed it.', 'Morning Routine window closed at ' + MORNING_CUTOFF_HOUR + ':00.', 'var(--danger)'); return; }
   const st = state.streaks[id], t = today();
   if (st.last_checked === t) return;
   const yStr = localYesterday();
@@ -120,12 +121,10 @@ function renderStreaks() {
     let btn;
     if (checked) {
       btn = `<button class="streak-btn done-btn" disabled>\u2713 DONE TODAY</button>`;
-    } else if (h.id === 'wake' && hour < WAKE_TARGET_HOUR) {
+    } else if ((h.id === 'wake' || h.id === 'morning') && hour < WAKE_TARGET_HOUR) {
       btn = `<button class="streak-btn done-btn" disabled style="opacity:0.5">\u23F0 OPENS AT ${WAKE_TARGET_HOUR}:00</button>`;
-    } else if (h.id === 'wake' && hour >= WAKE_CUTOFF_HOUR) {
+    } else if ((h.id === 'wake' || h.id === 'morning') && hour >= WAKE_CUTOFF_HOUR) {
       btn = `<button class="streak-btn done-btn" disabled style="opacity:0.5;border-color:var(--danger);color:var(--danger)">\u274C MISSED \u2014 closed at ${WAKE_CUTOFF_HOUR}:00</button>`;
-    } else if (h.id === 'morning' && hour >= MORNING_CUTOFF_HOUR) {
-      btn = `<button class="streak-btn done-btn" disabled style="opacity:0.5;border-color:var(--danger);color:var(--danger)">\u274C MISSED \u2014 closed at ${MORNING_CUTOFF_HOUR}:00</button>`;
     } else {
       btn = `<button class="streak-btn check" onclick="checkStreak('${h.id}')">CHECK IN \u2713</button>`;
     }
