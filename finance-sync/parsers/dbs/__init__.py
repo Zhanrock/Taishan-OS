@@ -50,6 +50,7 @@ IGNORED_SUBJECT_PATTERNS = [
     re.compile(r"Notification Preference", re.IGNORECASE),
     re.compile(r"Statement.*Ready", re.IGNORECASE),
     re.compile(r"e-Statement", re.IGNORECASE),
+    re.compile(r"\bOTP\b", re.IGNORECASE),  # confirmed real: "digibank Alert - Email OTP"
 ]
 
 
