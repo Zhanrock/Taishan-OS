@@ -16,6 +16,8 @@ KEYWORD_CATEGORIES = {
     "tesco": "groceries",
     "netflix": "subscriptions",
     "spotify": "subscriptions",
+    "true move": "bills",
+    "truemove": "bills",
 }
 
 
