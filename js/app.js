@@ -13,6 +13,7 @@ function switchTab(tab, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-' + tab).classList.add('active');
   el.classList.add('active');
+  el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   if (tab === 'schedule') renderSchedule();
   if (tab === 'review')   renderReviews();
   if (tab === 'calendar') renderCalendar();

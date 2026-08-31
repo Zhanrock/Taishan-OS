@@ -44,9 +44,22 @@
   .header { flex-direction: column; gap: 10px; margin-bottom: 16px; padding-bottom: 14px; }
   .level-badge { width: 100%; min-width: unset; box-sizing: border-box; }
   .greeting { font-size: 26px; }
-  .tabs { padding: 4px; gap: 2px; margin-bottom: 20px; }
-  .tab { padding: 9px 2px; font-size: 9px; }
-  .tab-icon { margin-right: 1px; font-size: 12px; }
+  .tabs {
+    padding: 4px;
+    gap: 4px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    mask-image: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 12px), transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 12px, #000 calc(100% - 12px), transparent);
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex: 0 0 auto; padding: 9px 14px; font-size: 11px; scroll-snap-align: start; }
+  .tab-icon { margin-right: 4px; font-size: 12px; }
   .section-header { margin-bottom: 12px; }
   .section-title { font-size: 13px; }
   .section-title span { font-size: 10px; margin-left: 4px; }
