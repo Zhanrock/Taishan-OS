@@ -15,7 +15,15 @@ Live sub-parsers: nets_scan_pay, paynow.
 Scaffolded (TODO, no confirmed sample yet): card, giro, fast_transfer,
 atm_withdrawal, salary_credit.
 
-Grow IGNORED_SUBJECT_PATTERNS from real inbox data with:
+DBS does NOT use one uniform subject convention -- confirmed from two real
+samples: NETS Scan & Pay's subject is "digibank Alert - Successful NETS
+Scan & Pay" (descriptive), but PayNow's is the generic "iBanking Alerts"
+(no transaction-type info at all). IGNORED_SUBJECT_PATTERNS below assumes
+the "digibank Alert - <description>" shape for non-transactional alerts;
+that is unverified and may simply not match some of them, in which case
+they'll surface in finance_unmatched instead of being silently ignored
+(the safe failure mode) rather than being wrongly ignored. Grow/correct
+this list from real inbox data with:
   python diagnose.py --list-subjects
 """
 import re

@@ -11,7 +11,7 @@ sync if tests fail.
 
 | Bank | Notification type | Status |
 |------|-------------------|--------|
-| DBS (Singapore) | PayNow transfer confirmations (`parsers/dbs/paynow.py`) | Live |
+| DBS (Singapore) | PayNow transfer confirmations (`parsers/dbs/paynow.py`) | Live, tested against a real sample |
 | DBS (Singapore) | NETS Scan & Pay (`parsers/dbs/nets_scan_pay.py`) | Live |
 | DBS (Singapore) | Card (Visa/Mastercard/NETS card, contactless, Google Wallet) | Scaffolded -- `matches()` returns `False`, no confirmed sample yet |
 | DBS (Singapore) | GIRO / standing instruction | Scaffolded |
@@ -64,8 +64,14 @@ sub-parser, so they don't become garbage `$0.00` rows or flood
 
 ### Extending the ignore list
 
-DBS's subject convention is `digibank Alert - <description>`. Grow the
-pattern list from real inbox data rather than guessing:
+DBS does not use one uniform subject convention. NETS Scan & Pay's subject
+is descriptive (`digibank Alert - Successful NETS Scan & Pay`); PayNow's is
+the generic `iBanking Alerts` with no transaction-type info at all
+(confirmed from real samples of both). `IGNORED_SUBJECT_PATTERNS` assumes
+the descriptive shape, which is unverified for non-transactional alert
+types -- if a pattern doesn't match, that email lands in `finance_unmatched`
+(safe) rather than being silently ignored (unsafe), but it still means the
+list needs correcting from real data, not just extending:
 
 ```
 python diagnose.py --list-subjects            # last 90 days, from ibanking.alert@dbs.com

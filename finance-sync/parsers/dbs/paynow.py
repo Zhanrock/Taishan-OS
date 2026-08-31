@@ -1,10 +1,10 @@
 """
 DBS PayNow transfer confirmations.
 
-Matched by body content ("paynow") rather than subject -- no confirmed
-subject line has been captured yet, so this keeps the dispatch key that was
-already verified against a real inbox rather than guessing a new one. Ask
-before switching this to subject-based dispatch.
+Matched by body content ("paynow") rather than subject -- confirmed against
+a real email that this template's Subject is the generic "iBanking Alerts",
+which carries no transaction-type information at all. Do not switch this to
+subject-based dispatch; it cannot work for this template.
 """
 from ..base import Transaction, get_body_text
 from . import common
