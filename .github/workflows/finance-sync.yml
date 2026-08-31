@@ -2,7 +2,12 @@ name: Finance Sync
 
 on:
   schedule:
-    - cron: "0 */6 * * *"   # every 6 hours
+    # Fires 04:17 / 10:17 / 16:17 / 22:17 UTC = 12:17 / 18:17 / 00:17 / 06:17 SGT.
+    # Offset from :00 on purpose — GitHub's scheduler queues everything set to
+    # fire exactly on the hour (0 */6 * * *), which caused multi-hour delays
+    # and occasional skipped runs. Off-the-hour minutes get run much closer
+    # to on time. GitHub Actions cron is always evaluated in UTC.
+    - cron: "17 4,10,16,22 * * *"
   workflow_dispatch: {}     # manual "Run workflow" button for testing
 
 jobs:
