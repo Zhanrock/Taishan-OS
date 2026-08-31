@@ -1,0 +1,16 @@
+From: DBS Bank <ibanking.alert@dbs.com>
+To: user@example.com
+Subject: digibank Alert - Successful NETS Scan & Pay
+Date: Mon, 31 Aug 2026 19:58:00 +0800
+Content-Type: text/html; charset="utf-8"
+
+<html><body>
+<p>Transaction Ref: 000000000000000</p>
+<p>Dear Customer,</p>
+<p>Your NETS Scan &amp; Pay transaction on 31 Aug 19:57 SGT was successful.</p>
+<p><b>Date &amp; Time:</b> 31 Aug 19:57 SGT</p>
+<p><b>Amount:</b> S$1.20</p>
+<p><b>From:</b> DBS/POSB Account ending 0000</p>
+<p><b>To:</b> POKKA PTE LTD</p>
+<p>If unauthorised, call DBS hotline. To view transaction, please login to Digibank.</p>
+</body></html>

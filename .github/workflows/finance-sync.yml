@@ -11,7 +11,24 @@ on:
   workflow_dispatch: {}     # manual "Run workflow" button for testing
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r finance-sync/requirements.txt
+
+      - name: Run tests
+        working-directory: finance-sync
+        run: pytest tests/ -v
+
   sync:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
