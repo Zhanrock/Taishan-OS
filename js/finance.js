@@ -6,16 +6,40 @@ function renderFinance() {
   const thisMonth = today().slice(0, 7);
   const monthTxns = txns.filter(t => financeMonthKey(t.txn_date) === thisMonth);
 
-  const spent = monthTxns.filter(t => t.direction === 'debit').reduce((s, t) => s + Number(t.amount), 0);
-  const income = monthTxns.filter(t => t.direction === 'credit').reduce((s, t) => s + Number(t.amount), 0);
+  // Never sum across currencies -- group first, then show the currency with
+  // the most activity this month as the headline; list the rest separately
+  // rather than silently mixing THB into an SGD total.
+  const byCurrency = {};
+  monthTxns.forEach(t => {
+    const cur = t.currency || 'SGD';
+    const bucket = byCurrency[cur] || (byCurrency[cur] = { spent: 0, income: 0, count: 0 });
+    const amt = Number(t.amount) || 0;
+    if (t.direction === 'credit') bucket.income += amt; else bucket.spent += amt;
+    bucket.count++;
+  });
+  const currencies = Object.keys(byCurrency).sort((a, b) => byCurrency[b].count - byCurrency[a].count);
+  const primary = currencies[0] || 'SGD';
+  const p = byCurrency[primary] || { spent: 0, income: 0, count: 0 };
 
-  document.getElementById('fi-stat-spent').textContent = spent.toFixed(2);
-  document.getElementById('fi-stat-income').textContent = income.toFixed(2);
-  document.getElementById('fi-stat-net').textContent = (income - spent).toFixed(2);
+  document.getElementById('fi-stat-spent').textContent = `${p.spent.toFixed(2)} ${primary}`;
+  document.getElementById('fi-stat-income').textContent = `${p.income.toFixed(2)} ${primary}`;
+  document.getElementById('fi-stat-net').textContent = `${(p.income - p.spent).toFixed(2)} ${primary}`;
   document.getElementById('fi-stat-count').textContent = monthTxns.length;
 
+  const otherEl = document.getElementById('fi-stat-other-currencies');
+  const others = currencies.slice(1);
+  if (others.length) {
+    otherEl.textContent = 'Also this month (not converted): ' + others.map(c => {
+      const b = byCurrency[c];
+      return `${(b.income - b.spent).toFixed(2)} ${c} net`;
+    }).join(', ');
+    otherEl.style.display = '';
+  } else {
+    otherEl.style.display = 'none';
+  }
+
   renderFinanceCategoryBreakdown(monthTxns);
-  renderFinanceTxnList(txns);
+  renderFinanceTxnList(monthTxns);
 }
 
 function renderFinanceCategoryBreakdown(monthTxns) {
@@ -79,6 +103,7 @@ function toggleFinanceAddForm() {
     ['fi-merchant-input', 'fi-amount-input'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('fi-date-input').value = today();
     document.getElementById('fi-direction-input').value = 'debit';
+    document.getElementById('fi-currency-input').value = 'SGD';
     const catSelect = document.getElementById('fi-cat-input');
     catSelect.innerHTML = FINANCE_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
     catSelect.value = 'uncategorized';
@@ -98,7 +123,7 @@ async function saveManualTransaction() {
     bank: 'manual',
     txn_date: txnDate,
     amount,
-    currency: 'THB',
+    currency: document.getElementById('fi-currency-input').value,
     direction: document.getElementById('fi-direction-input').value,
     merchant,
     category: document.getElementById('fi-cat-input').value,
