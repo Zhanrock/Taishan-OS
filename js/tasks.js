@@ -89,7 +89,7 @@ function _injectTaskEditForm(id) {
     </div>
     <div style="display:flex;flex-direction:column;gap:3px">
       <label style="font-size:10px;color:var(--muted);font-family:var(--mono)">DEADLINE DATE</label>
-      <input class="form-input" id="etDue" type="date" value="${t.due||''}" style="width:100%">
+      <input class="form-input" id="etDue" type="text" readonly data-optional="1" data-iso="${t.due||''}" value="${t.due?fmtDate(t.due):''}" style="width:100%">
     </div>
     <input class="form-input" id="etNote" placeholder="Notes..." value="${(t.note||'').replace(/"/g,'&quot;')}" style="width:100%">
     <div class="form-actions">
@@ -99,6 +99,7 @@ function _injectTaskEditForm(id) {
   `;
   anchor.insertAdjacentElement('afterend', form);
   form.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  initDatePicker('etDue');
   document.getElementById('etName').focus();
 }
 
@@ -108,7 +109,7 @@ async function submitEditTask() {
     name:     document.getElementById('etName').value.trim(),
     category: document.getElementById('etCat').value,
     priority: document.getElementById('etPrio').value,
-    due:      document.getElementById('etDue').value || null,
+    due:      document.getElementById('etDue').dataset.iso || null,
     note:     document.getElementById('etNote').value.trim()
   };
   if (!updates.name) { notify('\u26A0 Error','Task name required','var(--accent2)'); return; }
@@ -127,7 +128,8 @@ function toggleAddForm() {
   const f = document.getElementById('addForm');
   f.classList.toggle('open');
   if (f.classList.contains('open')) {
-    ['taskNameInput','taskDueInput','taskNoteInput'].forEach(id => document.getElementById(id).value = '');
+    ['taskNameInput','taskNoteInput'].forEach(id => document.getElementById(id).value = '');
+    dpClear('taskDueInput');
     document.getElementById('taskCatInput').value = 'module';
     document.getElementById('taskPrioInput').value = 'med';
     document.getElementById('taskNameInput').focus();
@@ -138,14 +140,15 @@ function cancelTaskForm() { document.getElementById('addForm').classList.remove(
 async function saveTask() {
   const name = document.getElementById('taskNameInput').value.trim();
   if (!name) { notify('\u26A0 Error','Task name required','var(--accent2)'); return; }
-  const task = { user_id:currentUser.id, name, category:document.getElementById('taskCatInput').value, due:document.getElementById('taskDueInput').value||null, priority:document.getElementById('taskPrioInput').value, note:document.getElementById('taskNoteInput').value.trim(), done:false, created_on:today() };
+  const task = { user_id:currentUser.id, name, category:document.getElementById('taskCatInput').value, due:document.getElementById('taskDueInput').dataset.iso||null, priority:document.getElementById('taskPrioInput').value, note:document.getElementById('taskNoteInput').value.trim(), done:false, created_on:today() };
   setSyncStatus('syncing');
   const {data,error} = await db.from('tasks').insert(task).select().single();
   if (error) { notify('\u26A0 Error','Could not save task','var(--danger)'); setSyncStatus('error'); return; }
   state.tasks.unshift({...data, createdOn:data.created_on});
   setSyncStatus('synced');
   document.getElementById('addForm').classList.remove('open');
-  ['taskNameInput','taskDueInput','taskNoteInput'].forEach(id => document.getElementById(id).value = '');
+  ['taskNameInput','taskNoteInput'].forEach(id => document.getElementById(id).value = '');
+  dpClear('taskDueInput');
   notify('\u2736 Task Added', name);
   renderTasks();
 }

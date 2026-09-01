@@ -180,6 +180,7 @@ function renderFinanceTxnList(monthTxns) {
   if (financeSearchQuery) txns = txns.filter(t => (t.merchant || '').toLowerCase().includes(financeSearchQuery));
   if (!txns.length) { el.innerHTML = '<div class="empty-state"><div>✦</div>No matching transactions.</div>'; return; }
   el.innerHTML = txns.map(financeTxnHTML).join('');
+  if (financeEditingId) initDatePicker('fi-edit-date-' + financeEditingId);
 }
 
 function financeTxnHTML(t) {
@@ -217,7 +218,7 @@ function financeTxnEditHTML(t) {
         <input class="form-input" id="fi-edit-amount-${t.id}" type="number" step="0.01" value="${t.amount}" style="flex:1">
       </div>
       <div class="form-row">
-        <input class="form-input" id="fi-edit-date-${t.id}" type="date" value="${t.txn_date}" style="flex:1">
+        <input class="form-input" id="fi-edit-date-${t.id}" type="text" readonly data-iso="${t.txn_date}" value="${fmtDate(t.txn_date)}" style="flex:1">
         <select class="form-select" id="fi-edit-direction-${t.id}">
           <option value="debit" ${t.direction === 'debit' ? 'selected' : ''}>Debit</option>
           <option value="credit" ${t.direction === 'credit' ? 'selected' : ''}>Credit</option>
@@ -235,7 +236,7 @@ function cancelFinanceEdit() { financeEditingId = null; renderFinanceTxnList(fin
 async function saveFinanceEdit(id) {
   const merchant = document.getElementById(`fi-edit-merchant-${id}`).value.trim();
   const amount = parseFloat(document.getElementById(`fi-edit-amount-${id}`).value);
-  const txn_date = document.getElementById(`fi-edit-date-${id}`).value;
+  const txn_date = document.getElementById(`fi-edit-date-${id}`).dataset.iso;
   const direction = document.getElementById(`fi-edit-direction-${id}`).value;
   const category = document.getElementById(`fi-edit-cat-${id}`).value;
   if (!merchant || !amount || !txn_date) { notify('⚠ Error', 'Merchant, amount and date are required', 'var(--accent2)'); return; }
@@ -319,7 +320,7 @@ function useFinanceUnmatchedForManual(id) {
   const amt = extractLikelyAmount(u.snippet || '');
   if (amt) document.getElementById('fi-amount-input').value = amt;
   document.getElementById('fi-currency-input').value = extractLikelyCurrency(u.snippet || '');
-  if (u.received_at) document.getElementById('fi-date-input').value = u.received_at.slice(0, 10);
+  if (u.received_at) dpSet('fi-date-input', u.received_at.slice(0, 10));
   document.getElementById('fi-merchant-input').focus();
 }
 
@@ -386,7 +387,7 @@ function toggleFinanceAddForm(skipReset) {
   f.classList.toggle('open');
   if (f.classList.contains('open')) {
     ['fi-merchant-input', 'fi-amount-input'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('fi-date-input').value = today();
+    dpSet('fi-date-input', today());
     document.getElementById('fi-direction-input').value = 'debit';
     document.getElementById('fi-currency-input').value = 'SGD';
     catSelect.value = 'uncategorized';
@@ -398,7 +399,7 @@ function cancelFinanceForm() { document.getElementById('fi-add-form').classList.
 async function saveManualTransaction() {
   const merchant = document.getElementById('fi-merchant-input').value.trim();
   const amount = parseFloat(document.getElementById('fi-amount-input').value);
-  const txnDate = document.getElementById('fi-date-input').value;
+  const txnDate = document.getElementById('fi-date-input').dataset.iso;
   if (!merchant || !amount || !txnDate) { notify('⚠ Error', 'Merchant, amount and date are required', 'var(--accent2)'); return; }
   const row = {
     user_id: currentUser.id,

@@ -51,6 +51,38 @@ input[type="file"]::file-selector-button {
   padding: 8px 14px; margin-right: 10px; cursor: pointer; transition: border-color 0.2s;
 }
 input[type="file"]::file-selector-button:hover { border-color: var(--accent); }
+
+/* Custom date picker: keeps dd/mm/yyyy display consistent across every
+   browser/OS, since native <input type="date"> formatting is locale-driven
+   and can't be forced reliably. */
+.date-input { cursor: pointer; }
+#dpPopup {
+  display: none; position: absolute; z-index: 200; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 10px; padding: 10px;
+  width: 220px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); font-family: var(--mono);
+}
+.dp-header { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+.dp-header-label { cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.dp-header-label:hover { background: var(--surface2); color: var(--accent); }
+.dp-nav { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); width: 24px; height: 24px; cursor: pointer; font-size: 13px; line-height: 1; flex-shrink: 0; }
+.dp-nav:hover { border-color: var(--accent); }
+.dp-dow-row { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 4px; }
+.dp-dow { font-size: 9px; color: var(--muted); text-align: center; }
+.dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.dp-cell { font-size: 11px; text-align: center; padding: 5px 0; border-radius: 6px; cursor: pointer; color: var(--text); }
+.dp-cell:hover { background: var(--surface2); }
+.dp-cell.dp-empty { cursor: default; }
+.dp-cell.dp-empty:hover { background: transparent; }
+.dp-cell.dp-today { border: 1px solid var(--accent); }
+.dp-cell.dp-sel { background: var(--accent); color: #fff; }
+.dp-grid-lg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.dp-cell-lg { font-size: 12px; text-align: center; padding: 12px 0; border-radius: 8px; cursor: pointer; color: var(--text); }
+.dp-cell-lg:hover { background: var(--surface2); }
+.dp-cell-lg.dp-today { border: 1px solid var(--accent); }
+.dp-cell-lg.dp-sel { background: var(--accent); color: #fff; }
+.dp-footer { display: flex; justify-content: space-between; margin-top: 8px; gap: 6px; }
+.dp-today-btn, .dp-clear-btn { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-family: var(--mono); font-size: 10px; padding: 5px; cursor: pointer; }
+.dp-today-btn:hover, .dp-clear-btn:hover { border-color: var(--accent); color: var(--text); }
 .btn-cancel { background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 8px 16px; color: var(--muted); font-family: var(--mono); font-size: 13px; cursor: pointer; }
 .btn-save { background: var(--accent); border: none; border-radius: 8px; padding: 8px 16px; color: #fff; font-family: var(--mono); font-size: 13px; font-weight: 700; cursor: pointer; }
 @media (max-width: 600px) {

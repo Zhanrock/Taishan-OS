@@ -49,6 +49,7 @@ function renderDomainLibrary() {
 
   if (openDomainId) {
     container.innerHTML = renderDomainDetailHTML(openDomainId);
+    container.querySelectorAll('input[id^="dom-pl-date-"]').forEach(el => initDatePicker(el.id));
     return;
   }
 
@@ -152,7 +153,7 @@ function renderProgressLogBlock(d, b, i, del) {
     ${del}
     <div class="dom-block-label">${esc(b.label || 'Progress Log')}</div>
     <div class="dom-mini-add">
-      <input class="form-input" type="date" id="dom-pl-date-${i}" value="${today()}" style="flex:0 0 150px">
+      <input class="form-input" type="text" readonly id="dom-pl-date-${i}" data-iso="${today()}" value="${fmtDate(today())}" style="flex:0 0 150px">
       <input class="form-input" id="dom-pl-note-${i}" placeholder="What happened today...">
       <button class="btn-save" onclick="addProgressEntry('${d.id}',${i})">LOG</button>
     </div>
@@ -305,7 +306,7 @@ async function addChecklistItem(domainId, blockIdx) {
 async function addProgressEntry(domainId, blockIdx) {
   const dateEl = document.getElementById('dom-pl-date-' + blockIdx);
   const noteEl = document.getElementById('dom-pl-note-' + blockIdx);
-  const date = (dateEl && dateEl.value) || today();
+  const date = (dateEl && dateEl.dataset.iso) || today();
   const note = noteEl ? noteEl.value.trim() : '';
   if (!note) { notify('⚠ Error', 'Entry text required', 'var(--accent2)'); return; }
   const d = LIFE_DOMAINS.find(x => x.id === domainId);
