@@ -194,11 +194,17 @@ to pretend otherwise:
 6. Write a test against a redacted fixture (see "Capturing and redacting a
    sample" above).
 
-## Roadmap (not yet built)
+## Roadmap
 
-- **Statement reconciliation import** -- upload a DBS export, three-way
-  match against `finance_transactions` to catch anything email capture
-  missed silently (template change, spam-filtered, dropped auth).
+All phases of the original spec are built. Ideas for later, not currently
+planned:
+
+- Card / GIRO / FAST transfer / ATM withdrawal / salary credit DBS
+  sub-parsers -- still scaffolded, waiting on real samples (see
+  "Extending the ignore list" above and `diagnose.py --list-subjects`).
+- A currency-conversion option for the 6-month trend and stats, instead
+  of always picking the dominant currency and listing the rest
+  unconverted.
 
 ### Built
 
@@ -211,3 +217,9 @@ to pretend otherwise:
   table, `recurring.py` materializer (run from `sync.py` on every sync),
   and a Recurring section in the Finance tab -- see "Known coverage gaps"
   above for how it works.
+- **Statement reconciliation import** (Phase 5): `js/finance-reconcile.js`
+  parses a CSV/XLSX export in-browser via a user-driven column mapping
+  (no fixed DBS template assumed) and matches it against
+  `finance_transactions` to surface anything email capture missed. Nothing
+  about the import is persisted -- only explicit "Add" actions on missed
+  rows write real transactions.
