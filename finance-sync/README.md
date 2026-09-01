@@ -13,7 +13,7 @@ sync if tests fail.
 |------|-------------------|--------|
 | DBS (Singapore) | PayNow transfer confirmations (`parsers/dbs/paynow.py`) | Live, tested against a real sample |
 | DBS (Singapore) | NETS Scan & Pay (`parsers/dbs/nets_scan_pay.py`) | Live |
-| DBS (Singapore) | Card (Visa/Mastercard/NETS card, contactless, Google Wallet) | Scaffolded -- `matches()` returns `False`, no confirmed sample yet |
+| DBS (Singapore) | Card (Visa/Mastercard/NETS card, contactless, Google Wallet) -- `parsers/dbs/card.py` | Live, tested against a real sample |
 | DBS (Singapore) | GIRO / standing instruction | Scaffolded |
 | DBS (Singapore) | FAST transfer | Scaffolded |
 | DBS (Singapore) | ATM withdrawal | Scaffolded |
@@ -199,9 +199,9 @@ to pretend otherwise:
 All phases of the original spec are built. Ideas for later, not currently
 planned:
 
-- Card / GIRO / FAST transfer / ATM withdrawal / salary credit DBS
-  sub-parsers -- still scaffolded, waiting on real samples (see
-  "Extending the ignore list" above and `diagnose.py --list-subjects`).
+- GIRO / FAST transfer / ATM withdrawal / salary credit DBS sub-parsers --
+  still scaffolded, waiting on real samples (see "Extending the ignore
+  list" above and `diagnose.py --list-subjects`).
 - A currency-conversion option for the 6-month trend and stats, instead
   of always picking the dominant currency and listing the rest
   unconverted.

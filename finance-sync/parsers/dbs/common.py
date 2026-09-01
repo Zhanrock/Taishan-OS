@@ -16,9 +16,10 @@ TO_RE = re.compile(r"To:\s*(?P<party>.+)")
 TXN_REF_RE = re.compile(r"Transaction Ref:\s*(?P<ref>\S+)")
 SUFFIX_RE = re.compile(r"\s+A/C\s+ending\s+\S+|\s*\(UEN\s+ending\s+\S+\)", re.IGNORECASE)
 # "My side" of a From/To pair: either the literal "My Account" (PayNow-style
-# templates) or "DBS/POSB Account ending NNNN" (NETS Scan & Pay). Do not rely
-# on "My Account" alone -- it is not present in every template.
-MY_ACCOUNT_LINE_RE = re.compile(r"(DBS/POSB Account ending|my account)", re.IGNORECASE)
+# templates), "DBS/POSB Account ending NNNN" (NETS Scan & Pay), or
+# "DBS/POSB card ending NNNN" (Card Transaction Alert). Do not rely on "My
+# Account" alone -- it is not present in every template.
+MY_ACCOUNT_LINE_RE = re.compile(r"(DBS/POSB (?:Account|card) ending|my account)", re.IGNORECASE)
 MY_ACCOUNT_MASK_RE = re.compile(r"ending\s+(?P<mask>\d{3,6})")
 
 

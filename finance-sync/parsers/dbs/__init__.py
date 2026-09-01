@@ -11,8 +11,8 @@ dispatches to a sub-parser by subject (or, for paynow, by body -- see
 paynow.py). If nothing matches, raises NeedsReview so sync.py logs it to
 finance_unmatched instead of guessing or silently dropping it.
 
-Live sub-parsers: nets_scan_pay, paynow.
-Scaffolded (TODO, no confirmed sample yet): card, giro, fast_transfer,
+Live sub-parsers: nets_scan_pay, paynow, card.
+Scaffolded (TODO, no confirmed sample yet): giro, fast_transfer,
 atm_withdrawal, salary_credit.
 
 DBS does NOT use one uniform subject convention -- confirmed from two real

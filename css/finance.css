@@ -11,6 +11,7 @@
 .fi-month-btn:not(:disabled):hover { border-color: var(--accent); }
 
 .fi-coverage-note { font-family: var(--mono); font-size: 10px; color: var(--muted); margin: 0 0 20px; line-height: 1.5; }
+.fi-sync-note { font-family: var(--mono); font-size: 10px; color: var(--muted); margin: -8px 0 12px; letter-spacing: 0.02em; }
 
 .fi-trend { margin-bottom: 20px; }
 .fi-trend-currency { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-bottom: 8px; }

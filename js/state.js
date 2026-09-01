@@ -10,6 +10,7 @@ let state = {
     review:   { count:0, history:[], last_checked:null },
   },
   tasks:[], events:[], reviews:[], financeTransactions:[], financeUnmatched:[], financeRecurring:[],
+  financeSyncState: null,
   nightChecks: { task:false, prep:false, phone:false },
   morningCard: null, sleepLog: null,
   phase:1, prevPhase:1,

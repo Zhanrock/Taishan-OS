@@ -259,7 +259,11 @@ def run(dry_run: bool) -> None:
         ).execute()
 
     supabase.table("finance_sync_state").upsert(
-        {"user_id": user_id, "last_synced_at": new_since_iso},
+        {
+            "user_id": user_id,
+            "last_synced_at": new_since_iso,
+            "last_run_at": datetime.now(timezone.utc).isoformat(),
+        },
         on_conflict="user_id",
     ).execute()
     print(f"Synced {len(rows)} transaction(s)")

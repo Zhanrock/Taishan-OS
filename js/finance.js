@@ -27,10 +27,61 @@ function setFinanceSearch(v) { financeSearchQuery = v.trim().toLowerCase(); rend
 function setFinanceCategoryFilter(v) { financeFilterCategory = v; renderFinanceTxnList(financeCurrentMonthTxns()); }
 function financeCurrentMonthTxns() { return state.financeTransactions.filter(t => financeMonthKey(t.txn_date) === financeViewMonth); }
 
+// ── Sync status (last run / next scheduled run) ── finance-sync.yml's cron
+// fires 04:17/10:17/16:17/22:17 UTC -- kept in sync with that file by hand,
+// since a static frontend can't read the workflow's schedule. Shown in the
+// viewer's own local time via toLocaleTimeString, not hardcoded to SGT.
+const FINANCE_SYNC_CRON_UTC_HOURS = [4, 10, 16, 22];
+const FINANCE_SYNC_CRON_MINUTE = 17;
+
+function financeNextSyncTime(from = new Date()) {
+  const candidates = FINANCE_SYNC_CRON_UTC_HOURS.map(h => {
+    const d = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate(), h, FINANCE_SYNC_CRON_MINUTE, 0));
+    if (d <= from) d.setUTCDate(d.getUTCDate() + 1);
+    return d;
+  });
+  return candidates.sort((a, b) => a - b)[0];
+}
+
+function financeFormatSyncTime(d) {
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (d.toDateString() === now.toDateString()) return `today ${time}`;
+  if (d.toDateString() === tomorrow.toDateString()) return `tomorrow ${time}`;
+  return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
+}
+
+function financeRelativeTime(iso) {
+  if (!iso) return 'never';
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+function renderFinanceSyncStatus() {
+  const el = document.getElementById('fi-sync-status');
+  if (!el) return;
+  const s = state.financeSyncState;
+  const lastRun = s?.last_run_at || s?.last_synced_at || null;
+  el.textContent = `↻ List last updated ${financeRelativeTime(lastRun)} · Next auto-sync ${financeFormatSyncTime(financeNextSyncTime())}`;
+}
+
+// Keep the "Xm/h ago" text fresh while the tab is open, without a full
+// re-render -- runs regardless of active tab, but the DOM write is a no-op
+// (element not found) when Finance isn't showing.
+setInterval(renderFinanceSyncStatus, 60000);
+
 function renderFinance() {
   const monthTxns = financeCurrentMonthTxns();
 
   document.getElementById('fi-month-label').textContent = financeMonthLabel(financeViewMonth);
+  renderFinanceSyncStatus();
   document.getElementById('fi-month-next').disabled = financeViewMonth >= today().slice(0, 7);
 
   // Never sum across currencies -- group first, then show the currency with
