@@ -30,6 +30,7 @@ from supabase import create_client
 from parsers import PARSERS
 from parsers.base import Ignored, NeedsReview, get_body_text
 from categorize import categorize, strip_legal_suffix
+from recurring import materialize_recurring
 
 GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 SYNC_OVERLAP = timedelta(days=2)
@@ -196,6 +197,12 @@ def run(dry_run: bool) -> None:
         if state.data
         else "2020-01-01T00:00:00Z"
     )
+
+    recurring_rows = materialize_recurring(supabase, user_id, dry_run=dry_run)
+    if recurring_rows:
+        prefix = "[dry-run] would materialize" if dry_run else "Materialized"
+        print(f"{prefix} {len(recurring_rows)} recurring transaction(s): "
+              + ", ".join(f"{r['merchant']} ({r['amount']} {r['currency']})" for r in recurring_rows))
 
     gmail = gmail_client()
     messages = fetch_new_messages(gmail, since_iso)

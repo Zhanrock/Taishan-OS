@@ -72,6 +72,7 @@ function renderFinance() {
   renderFinanceTrend();
   renderFinanceTxnList(monthTxns);
   renderFinanceUnmatched();
+  renderFinanceRecurring();
 }
 
 function renderFinanceCategoryBreakdown(monthTxns) {
@@ -188,12 +189,13 @@ function financeTxnHTML(t) {
   const amtColor = t.direction === 'credit' ? 'var(--success)' : 'var(--text)';
   const catOptions = FINANCE_CATEGORIES.map(c => `<option value="${c}" ${c === t.category ? 'selected' : ''}>${c}</option>`).join('');
   const pendingBadge = t.status === 'pending' ? '<span class="fi-pending-badge">PENDING</span>' : '';
+  const estimatedBadge = t.is_estimated ? '<span class="fi-pending-badge fi-estimated-badge" title="Declared under Recurring, not confirmed by a bank alert">ESTIMATED</span>' : '';
   const actions = financeConfirmDeleteId === t.id
     ? `<div class="fi-txn-confirm"><span>Delete?</span><button class="fi-txn-confirm-yes" onclick="deleteFinanceTxn('${t.id}')">Yes</button><button class="fi-txn-confirm-no" onclick="cancelFinanceDelete()">No</button></div>`
     : `<button class="fi-txn-del" title="Delete" onclick="requestFinanceDelete('${t.id}')">&#10005;</button>`;
   return `<div class="fi-txn-item">
     <div class="fi-txn-body" onclick="startFinanceEdit('${t.id}')">
-      <div class="fi-txn-merchant">${t.merchant || 'Unknown'} ${pendingBadge}</div>
+      <div class="fi-txn-merchant">${t.merchant || 'Unknown'} ${pendingBadge}${estimatedBadge}</div>
       <div class="fi-txn-meta">
         <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${fmtDate(t.txn_date)}</span>
         <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${t.bank}${t.account_mask ? ' ••' + t.account_mask : ''}</span>
@@ -420,4 +422,101 @@ async function saveManualTransaction() {
   cancelFinanceForm();
   notify('✇ Transaction Added', merchant);
   renderFinance();
+}
+
+// ── Recurring declarations (DBS never alerts on these -- see README's "DBS
+// alerting rules" -- so finance-sync/recurring.py materializes an
+// is_estimated=true finance_transactions row for each one, once per month,
+// on sync. This section is only the declaration CRUD; materialization
+// itself runs server-side on schedule, not from the browser.) ──
+function renderFinanceRecurring() {
+  const el = document.getElementById('fi-recurring-list');
+  const list = state.financeRecurring || [];
+  if (!list.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:16px"><div>&#8635;</div>No recurring items declared. DBS can\'t see these -- declare them here.</div>';
+    return;
+  }
+  el.innerHTML = list.map(financeRecurringHTML).join('');
+}
+
+function financeRecurringHTML(r) {
+  const sign = r.direction === 'credit' ? '+' : '−';
+  const amtColor = r.direction === 'credit' ? 'var(--success)' : 'var(--text)';
+  return `<div class="fi-txn-item${r.active ? '' : ' fi-recurring-inactive'}">
+    <div class="fi-txn-body">
+      <div class="fi-txn-merchant">${financeEscape(r.name)}</div>
+      <div class="fi-txn-meta">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">day ${r.day_of_month} of month</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:capitalize">${r.category}${r.active ? '' : ' &middot; paused'}</span>
+      </div>
+    </div>
+    <div class="fi-txn-amt" style="color:${amtColor}">${sign}${Number(r.amount).toFixed(2)} <span style="font-size:10px;color:var(--muted)">${r.currency}</span></div>
+    <button class="fi-recurring-toggle" onclick="toggleFinanceRecurringActive('${r.id}', ${!r.active})">${r.active ? 'Pause' : 'Resume'}</button>
+    <button class="fi-txn-del" title="Delete" onclick="deleteFinanceRecurring('${r.id}')">&#10005;</button>
+  </div>`;
+}
+
+function toggleFinanceRecurringForm() {
+  const f = document.getElementById('fi-recurring-form');
+  const catSelect = document.getElementById('fi-rec-cat-input');
+  if (!catSelect.options.length) catSelect.innerHTML = FINANCE_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+  f.classList.toggle('open');
+  if (f.classList.contains('open')) {
+    document.getElementById('fi-rec-name-input').value = '';
+    document.getElementById('fi-rec-amount-input').value = '';
+    document.getElementById('fi-rec-day-input').value = '';
+    document.getElementById('fi-rec-direction-input').value = 'debit';
+    document.getElementById('fi-rec-currency-input').value = 'SGD';
+    catSelect.value = 'bills';
+    document.getElementById('fi-rec-name-input').focus();
+  }
+}
+function cancelFinanceRecurringForm() { document.getElementById('fi-recurring-form').classList.remove('open'); }
+
+async function saveFinanceRecurring() {
+  const name = document.getElementById('fi-rec-name-input').value.trim();
+  const amount = parseFloat(document.getElementById('fi-rec-amount-input').value);
+  const day = parseInt(document.getElementById('fi-rec-day-input').value, 10);
+  if (!name || !amount || !day || day < 1 || day > 28) {
+    notify('⚠ Error', 'Name, amount and a day of month (1-28) are required', 'var(--accent2)');
+    return;
+  }
+  const row = {
+    user_id: currentUser.id,
+    name,
+    amount,
+    currency: document.getElementById('fi-rec-currency-input').value,
+    direction: document.getElementById('fi-rec-direction-input').value,
+    category: document.getElementById('fi-rec-cat-input').value,
+    day_of_month: day,
+    active: true,
+  };
+  setSyncStatus('syncing');
+  const { data, error } = await db.from('finance_recurring').insert(row).select().single();
+  if (error) { notify('⚠ Error', 'Could not save recurring item', 'var(--danger)'); setSyncStatus('error'); return; }
+  state.financeRecurring.push(data);
+  state.financeRecurring.sort((a, b) => a.day_of_month - b.day_of_month);
+  setSyncStatus('synced');
+  cancelFinanceRecurringForm();
+  notify('↻ Recurring Added', name);
+  renderFinanceRecurring();
+}
+
+async function toggleFinanceRecurringActive(id, active) {
+  setSyncStatus('syncing');
+  const { error } = await db.from('finance_recurring').update({ active }).eq('id', id);
+  if (error) { notify('⚠ Error', 'Could not update recurring item', 'var(--danger)'); setSyncStatus('error'); return; }
+  const r = state.financeRecurring.find(x => x.id === id);
+  if (r) r.active = active;
+  setSyncStatus('synced');
+  renderFinanceRecurring();
+}
+
+async function deleteFinanceRecurring(id) {
+  setSyncStatus('syncing');
+  const { error } = await db.from('finance_recurring').delete().eq('id', id);
+  if (error) { notify('⚠ Error', 'Could not delete recurring item', 'var(--danger)'); setSyncStatus('error'); return; }
+  state.financeRecurring = state.financeRecurring.filter(x => x.id !== id);
+  setSyncStatus('synced');
+  renderFinanceRecurring();
 }

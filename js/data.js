@@ -32,6 +32,8 @@ async function loadAllData() {
     state.financeTransactions = financeTransactions || [];
     const { data: financeUnmatched } = await db.from('finance_unmatched').select('*').eq('user_id', uid).order('received_at', { ascending: false });
     state.financeUnmatched = financeUnmatched || [];
+    const { data: financeRecurring } = await db.from('finance_recurring').select('*').eq('user_id', uid).order('day_of_month', { ascending: true });
+    state.financeRecurring = financeRecurring || [];
     setSyncStatus('synced');
   } catch(e) { setSyncStatus('error'); console.error(e); }
   state.prevPhase = state.phase;
@@ -51,5 +53,6 @@ function subscribeRealtime() {
     .on('postgres_changes', { event:'*', schema:'public', table:'events',  filter:`user_id=eq.${currentUser.id}` }, () => loadAllData())
     .on('postgres_changes', { event:'*', schema:'public', table:'finance_transactions', filter:`user_id=eq.${currentUser.id}` }, () => loadAllData())
     .on('postgres_changes', { event:'*', schema:'public', table:'finance_unmatched', filter:`user_id=eq.${currentUser.id}` }, () => loadAllData())
+    .on('postgres_changes', { event:'*', schema:'public', table:'finance_recurring', filter:`user_id=eq.${currentUser.id}` }, () => loadAllData())
     .subscribe();
 }

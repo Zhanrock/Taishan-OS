@@ -155,9 +155,14 @@ This system cannot see everything DBS does with money, and it does not try
 to pretend otherwise:
 
 - **Recurring payments** (subscriptions, utility/telco bills, loan
-  payments) never alert at any DBS threshold. These are handled by
-  declaration, not capture (see `finance_recurring` in the roadmap below),
-  not by a parser fix -- none is possible.
+  payments) never alert at any DBS threshold -- no parser fix is possible.
+  Declare them instead: the Finance tab's Recurring section writes to
+  `finance_recurring`, and `recurring.py` materializes one
+  `finance_transactions` row per declaration per month it's due, marked
+  `is_estimated = true` (shown as an ESTIMATED badge) so it's never
+  confused with a bank-confirmed transaction. No cross-linking is
+  attempted if a real alert for the same bill ever does arrive -- they'd
+  show as two separate rows.
 - **Anything below a threshold not yet zeroed.** Card purchases under
   S$500 (before the S$0 change took effect) never generated an email and
   were never captured. If thresholds drift back up, this gap reopens
@@ -191,12 +196,18 @@ to pretend otherwise:
 
 ## Roadmap (not yet built)
 
-- **Recurring transaction declarations** (`finance_recurring` table,
-  materializer, UI) -- since DBS structurally cannot alert on these.
 - **Statement reconciliation import** -- upload a DBS export, three-way
   match against `finance_transactions` to catch anything email capture
   missed silently (template change, spam-filtered, dropped auth).
-- Finance tab upgrades: month navigation, six-month trend, search/filter,
-  full edit/delete, paste-an-alert box, unmatched inbox UI, pending badge,
-  spending-by-payment-method, CSV export, and a visible "here's what this
-  dashboard can't see" line near the totals.
+
+### Built
+
+- **Finance tab upgrades** (Phase 3): month navigation, six-month trend,
+  search/filter, inline edit/delete with a confirm step, a paste-an-alert
+  box (best-effort client-side extraction into the manual-entry form),
+  unmatched inbox UI, pending badge, spending-by-payment-method, CSV
+  export, and a coverage-honesty line near the totals.
+- **Recurring transaction declarations** (Phase 4): `finance_recurring`
+  table, `recurring.py` materializer (run from `sync.py` on every sync),
+  and a Recurring section in the Finance tab -- see "Known coverage gaps"
+  above for how it works.

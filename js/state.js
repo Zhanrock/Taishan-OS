@@ -9,7 +9,7 @@ let state = {
     exercise: { count:0, history:[], last_checked:null },
     review:   { count:0, history:[], last_checked:null },
   },
-  tasks:[], events:[], reviews:[], financeTransactions:[], financeUnmatched:[],
+  tasks:[], events:[], reviews:[], financeTransactions:[], financeUnmatched:[], financeRecurring:[],
   nightChecks: { task:false, prep:false, phone:false },
   morningCard: null, sleepLog: null,
   phase:1, prevPhase:1,
