@@ -231,6 +231,8 @@ def run(dry_run: bool) -> None:
         txn["category"] = categorize(txn["merchant"])
         rows.append(txn)
 
+    matched_gmail_ids = [row["external_id"] for row in rows]
+
     new_since_iso, newest_seen = next_sync_window(since_iso, messages)
     window_note = f"newest message {newest_seen.isoformat()}" if newest_seen else "no messages this run"
     print(f"Sync window: {since_iso} -> {new_since_iso} ({window_note}, {SYNC_OVERLAP.days}-day overlap buffer)")
@@ -257,6 +259,16 @@ def run(dry_run: bool) -> None:
         supabase.table("finance_unmatched").upsert(
             unmatched_rows, on_conflict="user_id,gmail_id"
         ).execute()
+
+    if matched_gmail_ids:
+        # A message that failed to parse in an earlier run (parser gap, bug)
+        # can start succeeding once that gap is fixed and this same email
+        # gets re-fetched inside the sync window. Without this, its old
+        # finance_unmatched row would sit unresolved forever even though a
+        # real finance_transactions row now exists for it.
+        supabase.table("finance_unmatched").update({"resolved": True}).eq(
+            "user_id", user_id
+        ).in_("gmail_id", matched_gmail_ids).execute()
 
     supabase.table("finance_sync_state").upsert(
         {
