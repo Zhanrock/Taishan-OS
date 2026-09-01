@@ -88,6 +88,16 @@
 }
 .fi-recurring-toggle:hover { border-color: var(--accent); color: var(--text); }
 
+#fi-reconcile-file { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.fi-reconcile-map-field { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 140px; }
+.fi-reconcile-map-field label { font-family: var(--mono); font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.fi-reconcile-preview-note { font-family: var(--mono); font-size: 10px; color: var(--muted); margin: 10px 0 6px; }
+.fi-reconcile-preview-table { display: flex; flex-direction: column; gap: 2px; overflow-x: auto; margin-bottom: 8px; }
+.fi-reconcile-preview-row { display: flex; gap: 10px; font-family: var(--mono); font-size: 10px; color: var(--muted); white-space: nowrap; }
+.fi-reconcile-preview-row span { min-width: 80px; }
+.fi-reconcile-summary { font-family: var(--mono); font-size: 11px; color: var(--text); margin: 10px 0; }
+.fi-reconcile-missed-list { display: flex; flex-direction: column; gap: 8px; }
+
 .fi-cat-breakdown { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
 .fi-cat-row { display: flex; align-items: center; gap: 10px; }
 .fi-cat-label { display: flex; align-items: center; gap: 6px; width: 110px; flex-shrink: 0; font-family: var(--mono); font-size: 11px; text-transform: capitalize; }
