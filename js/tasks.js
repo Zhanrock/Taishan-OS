@@ -88,8 +88,8 @@ function _injectTaskEditForm(id) {
       </select>
     </div>
     <div style="display:flex;flex-direction:column;gap:3px">
-      <label style="font-size:10px;color:var(--muted);font-family:var(--mono)">DEADLINE DATE (dd/mm/yyyy)</label>
-      <input class="form-input" id="etDue" type="text" placeholder="27/03/2026" maxlength="10" value="${fmtDate(t.due)||''}" style="width:100%">
+      <label style="font-size:10px;color:var(--muted);font-family:var(--mono)">DEADLINE DATE</label>
+      <input class="form-input" id="etDue" type="date" value="${t.due||''}" style="width:100%">
     </div>
     <input class="form-input" id="etNote" placeholder="Notes..." value="${(t.note||'').replace(/"/g,'&quot;')}" style="width:100%">
     <div class="form-actions">
@@ -100,7 +100,6 @@ function _injectTaskEditForm(id) {
   anchor.insertAdjacentElement('afterend', form);
   form.scrollIntoView({ behavior:'smooth', block:'nearest' });
   document.getElementById('etName').focus();
-  document.getElementById('etDue').addEventListener('input', autoDate);
 }
 
 async function submitEditTask() {
@@ -109,7 +108,7 @@ async function submitEditTask() {
     name:     document.getElementById('etName').value.trim(),
     category: document.getElementById('etCat').value,
     priority: document.getElementById('etPrio').value,
-    due:      parseDate(document.getElementById('etDue').value.trim()) || null,
+    due:      document.getElementById('etDue').value || null,
     note:     document.getElementById('etNote').value.trim()
   };
   if (!updates.name) { notify('\u26A0 Error','Task name required','var(--accent2)'); return; }
@@ -139,7 +138,7 @@ function cancelTaskForm() { document.getElementById('addForm').classList.remove(
 async function saveTask() {
   const name = document.getElementById('taskNameInput').value.trim();
   if (!name) { notify('\u26A0 Error','Task name required','var(--accent2)'); return; }
-  const task = { user_id:currentUser.id, name, category:document.getElementById('taskCatInput').value, due:parseDate(document.getElementById('taskDueInput').value.trim())||null, priority:document.getElementById('taskPrioInput').value, note:document.getElementById('taskNoteInput').value.trim(), done:false, created_on:today() };
+  const task = { user_id:currentUser.id, name, category:document.getElementById('taskCatInput').value, due:document.getElementById('taskDueInput').value||null, priority:document.getElementById('taskPrioInput').value, note:document.getElementById('taskNoteInput').value.trim(), done:false, created_on:today() };
   setSyncStatus('syncing');
   const {data,error} = await db.from('tasks').insert(task).select().single();
   if (error) { notify('\u26A0 Error','Could not save task','var(--danger)'); setSyncStatus('error'); return; }

@@ -129,7 +129,7 @@
         <select class="form-select" id="taskCatInput"><option value="module">&#128218; Module</option><option value="research">&#128300; Research</option><option value="hackathon">&#9889; Hackathon</option><option value="personal">&#11088; Personal</option></select>
       </div>
       <div class="form-row">
-        <div style="display:flex;flex-direction:column;gap:3px;flex:1"><label style="font-size:10px;color:var(--muted);font-family:var(--mono)">DEADLINE DATE (dd/mm/yyyy)</label><input class="form-input" id="taskDueInput" type="text" placeholder="27/03/2026" maxlength="10" style="width:100%"></div>
+        <div style="display:flex;flex-direction:column;gap:3px;flex:1"><label style="font-size:10px;color:var(--muted);font-family:var(--mono)">DEADLINE DATE</label><input class="form-input" id="taskDueInput" type="date" style="width:100%"></div>
         <select class="form-select" id="taskPrioInput" style="align-self:flex-end"><option value="high">&#128308; High</option><option value="med">&#128993; Medium</option><option value="low">&#128994; Low</option></select>
         <input class="form-input" id="taskNoteInput" placeholder="Notes (optional)" style="flex:2;align-self:flex-end">
       </div>
@@ -267,7 +267,7 @@
         <select class="form-select" id="evPriority"><option value="normal">Normal</option><option value="high">&#128308; High Priority</option></select>
       </div>
       <div class="form-row" id="evDateRow">
-        <div style="display:flex;flex-direction:column;gap:3px;flex:1"><label style="font-size:10px;color:var(--muted);font-family:var(--mono)" id="evDateLabel">DATE (dd/mm/yyyy)</label><input class="form-input" id="evDate" type="text" placeholder="27/03/2026" maxlength="10"></div>
+        <div style="display:flex;flex-direction:column;gap:3px;flex:1"><label style="font-size:10px;color:var(--muted);font-family:var(--mono)" id="evDateLabel">DATE</label><input class="form-input" id="evDate" type="date"></div>
         <div style="display:flex;flex-direction:column;gap:3px;flex:1"><label style="font-size:10px;color:var(--muted);font-family:var(--mono)">START TIME</label><input class="form-input" id="evTime" type="time"></div>
         <div style="display:flex;flex-direction:column;gap:3px;flex:1"><label style="font-size:10px;color:var(--muted);font-family:var(--mono)">END TIME</label><input class="form-input" id="evEndTime" type="time"></div>
       </div>
@@ -282,7 +282,7 @@
           <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="checkbox" id="evFri" style="accent-color:var(--accent)"> Fri</label>
         </div>
         <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:10px"><label style="font-size:10px;color:var(--muted);font-family:var(--mono)">WEEK PATTERN</label><select class="form-select" id="evWeekPattern" style="width:100%"><option value="all">Every week</option><option value="odd">Odd weeks only (1, 3, 5&#8230;)</option><option value="even">Even weeks only (2, 4, 6&#8230;)</option></select></div>
-        <div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:10px;color:var(--muted);font-family:var(--mono)">SEMESTER END DATE (dd/mm/yyyy)</label><input class="form-input" id="evRecurEnd" type="text" placeholder="31/07/2026" maxlength="10" style="width:100%"></div>
+        <div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:10px;color:var(--muted);font-family:var(--mono)">SEMESTER END DATE</label><input class="form-input" id="evRecurEnd" type="date" style="width:100%"></div>
         <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:6px">Creates all weekly repeats. Week 1 is the week containing the semester start date. Cancel individual classes anytime.</div>
       </div>
       <div class="form-actions"><button class="btn-cancel" onclick="cancelEventForm()">Cancel</button><button class="btn-save" onclick="saveEvent()">SAVE EVENT</button></div>

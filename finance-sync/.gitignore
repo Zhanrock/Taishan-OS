@@ -5,3 +5,4 @@ __pycache__/
 
 # Real sample emails/screenshots used to write parsers — personal data, never commit
 parsers/Example_template/
+bash.exe.stackdump

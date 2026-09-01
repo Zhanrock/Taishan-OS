@@ -19,7 +19,6 @@ const today      = () => new Date().toLocaleDateString('en-CA');
 const todayLabel = () => new Date().toLocaleDateString('en-GB', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
 const getHour    = () => new Date().getHours();
 const fmtDate    = (iso) => { if (!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y}`; };
-const parseDate  = (dmy) => { if (!dmy) return ''; const [d,m,y] = dmy.split('/'); if (!d||!m||!y) return ''; return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; };
 const localYesterday = () => { const d = new Date(); d.setDate(d.getDate()-1); return d.toLocaleDateString('en-CA'); };
 
 function setSyncStatus(s) {
@@ -35,18 +34,6 @@ function notify(title, body, color='var(--accent3)') {
   n.classList.add('show');
   setTimeout(() => n.classList.remove('show'), 3500);
 }
-function autoDate(e) {
-  let v = e.target.value.replace(/\D/g, '').slice(0, 8);
-  if (v.length >= 5) v = v.slice(0,2) + '/' + v.slice(2,4) + '/' + v.slice(4);
-  else if (v.length >= 3) v = v.slice(0,2) + '/' + v.slice(2);
-  e.target.value = v;
-}
-document.addEventListener('DOMContentLoaded', () => {
-  ['evDate','evRecurEnd','editEvDate','taskDueInput','editTaskDue'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('input', autoDate);
-  });
-});
 
 function sleepGraceLevel(timeStr) {
   if (!timeStr) return null;
