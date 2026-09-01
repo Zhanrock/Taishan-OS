@@ -272,6 +272,7 @@ create policy "Users own their data" on finance_sync_state for all using (auth.u
 
 | Version | What changed |
 |---|---|
+| v2.9.7 | finance-sync no longer re-upserts a transaction whose email was re-fetched inside the sync overlap window -- previously this silently reverted any manual edit (category, merchant, amount, etc.) made in the Finance tab back to the freshly parsed values. Also added common Singapore F&B/retail/supermarket/cinema chains to auto-categorization. |
 | v2.9.6 | DBS card transaction parser (covers physical/contactless/Google Wallet card alerts); finance tab shows when the transaction list was last synced and when the next scheduled sync runs; finance-sync now auto-resolves a stale Unmatched Inbox entry once a later fix lets that same email parse successfully. |
 | v2.9.5 | Finance tab added: finance-sync/ (GitHub Actions cron) parses bank notification emails from Gmail per-bank and syncs finance_transactions to Supabase; UI shows monthly spend/income/net, category breakdown, transaction list with inline category correction, and manual entry. |
 | v2.9.4 | Domain Library added (per-domain detail pages: links, notes, checklists, progress logs, phased programs). Shipped starter templates (DEFAULT_DOMAINS, DEFAULT_TASKS) genericized — no personal/employer/collaborator specifics live in source anymore, only in each account's own Supabase rows. |
