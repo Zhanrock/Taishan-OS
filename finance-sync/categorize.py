@@ -54,6 +54,48 @@ KEYWORD_CATEGORIES = {
     "shell": "transport",
     "esso": "transport",
     "caltex": "transport",
+    "sbs transit": "transport",
+
+    # Singapore -- F&B chains
+    "mcdonald": "food",
+    "kfc": "food",
+    "burger king": "food",
+    "subway": "food",
+    "pizza hut": "food",
+    "domino": "food",
+    "toast box": "food",
+    "ya kun": "food",
+    "old chang kee": "food",
+    "breadtalk": "food",
+    "din tai fung": "food",
+    "swensen": "food",
+    "crystal jade": "food",
+    "astons": "food",
+    "long john silver": "food",
+    "popeyes": "food",
+    "jollibee": "food",
+    "mos burger": "food",
+
+    # Singapore -- supermarkets
+    "prime supermarket": "groceries",
+    "don don donki": "groceries",
+    "donki": "groceries",
+    "meidi-ya": "groceries",
+
+    # Singapore -- retail
+    "uniqlo": "shopping",
+    "muji": "shopping",
+    "ikea": "shopping",
+    "courts": "shopping",
+    "challenger": "shopping",
+    "popular bookstore": "shopping",
+    "daiso": "shopping",
+    "decathlon": "shopping",
+
+    # Singapore -- entertainment
+    "golden village": "entertainment",
+    "cathay cineplex": "entertainment",
+    "shaw theatres": "entertainment",
 }
 
 _LEGAL_SUFFIX_RE = re.compile(
