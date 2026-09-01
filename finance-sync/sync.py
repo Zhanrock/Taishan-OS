@@ -182,6 +182,22 @@ def dedup_and_merge(supabase, user_id: str, rows: list[dict]) -> list[dict]:
     return to_insert
 
 
+def filter_new_rows(rows: list[dict], existing_external_ids: set[str]) -> list[dict]:
+    """Pure function: drop any row whose external_id already has a
+    finance_transactions row. The SYNC_OVERLAP window means the same email
+    gets re-fetched from Gmail on every run until a newer email supersedes
+    it -- re-parsing it always yields byte-identical data, so there is
+    never a legitimate reason to touch that row again. Blindly upserting
+    it back would silently clobber any manual edit the user made in the UI
+    (category, merchant, amount, direction, date) with the freshly
+    recomputed values. This is a different case from dedup_and_merge,
+    which reconciles two *different* emails (e.g. authorisation +
+    settlement) for the same real-world transaction -- it deliberately
+    ignores same-external_id matches, leaving this gap for a repeat
+    fetch of the exact same email."""
+    return [r for r in rows if r["external_id"] not in existing_external_ids]
+
+
 def run(dry_run: bool) -> None:
     user_id = env("FINANCE_USER_ID")
     supabase = create_client(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"))
@@ -251,9 +267,22 @@ def run(dry_run: bool) -> None:
         rows = dedup_and_merge(supabase, user_id, rows)
 
     if rows:
-        supabase.table("finance_transactions").upsert(
-            rows, on_conflict="user_id,external_id"
-        ).execute()
+        existing_resp = (
+            supabase.table("finance_transactions")
+            .select("external_id")
+            .eq("user_id", user_id)
+            .in_("external_id", [r["external_id"] for r in rows])
+            .execute()
+        )
+        existing_ids = {r["external_id"] for r in existing_resp.data}
+        before = len(rows)
+        rows = filter_new_rows(rows, existing_ids)
+        if before - len(rows):
+            print(f"Skipped {before - len(rows)} already-synced transaction(s) "
+                  "(same email re-fetched inside the overlap window) -- not overwriting any manual edits")
+
+    if rows:
+        supabase.table("finance_transactions").insert(rows).execute()
 
     if unmatched_rows:
         supabase.table("finance_unmatched").upsert(
