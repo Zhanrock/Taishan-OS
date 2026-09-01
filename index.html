@@ -346,9 +346,23 @@
   <!-- FINANCE -->
   <div class="panel" id="panel-finance">
     <div class="section-header">
-      <div class="section-title">Finance <span>this month</span></div>
-      <button class="btn-add" onclick="toggleFinanceAddForm()">+ ADD MANUAL</button>
+      <div class="section-title">Finance <span id="fi-month-label">this month</span></div>
+      <div class="fi-header-actions">
+        <div class="fi-month-nav">
+          <button class="fi-month-btn" onclick="changeFinanceMonth(-1)" title="Previous month">&#8249;</button>
+          <button class="fi-month-btn" id="fi-month-next" onclick="changeFinanceMonth(1)" title="Next month">&#8250;</button>
+        </div>
+        <button class="btn-add" onclick="toggleFinancePasteBox()">&#128203; PASTE ALERT</button>
+        <button class="btn-add" onclick="toggleFinanceAddForm()">+ ADD MANUAL</button>
+      </div>
     </div>
+
+    <div class="add-form" id="fi-paste-box">
+      <div style="font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:0.05em;margin-bottom:2px">PASTE A BANK ALERT &mdash; BEST-EFFORT GUESS, REVIEW BEFORE SAVING</div>
+      <textarea class="form-input" id="fi-paste-input" rows="4" placeholder="Paste the alert email text here..." style="width:100%;resize:vertical"></textarea>
+      <div class="form-actions"><button class="btn-cancel" onclick="cancelFinancePasteBox()">Cancel</button><button class="btn-save" onclick="extractFinancePaste()">EXTRACT &#8594; MANUAL FORM</button></div>
+    </div>
+
     <div class="add-form" id="fi-add-form">
       <div style="font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:0.05em;margin-bottom:2px">NEW TRANSACTION</div>
       <div class="form-row">
@@ -363,16 +377,46 @@
       </div>
       <div class="form-actions"><button class="btn-cancel" onclick="cancelFinanceForm()">Cancel</button><button class="btn-save" onclick="saveManualTransaction()">SAVE TRANSACTION</button></div>
     </div>
+
     <div class="fi-stats-grid">
       <div class="stat-card"><div class="stat-label">Spent</div><div class="stat-value" id="fi-stat-spent" style="color:var(--accent2)">0.00</div><div class="stat-sub">this month</div></div>
       <div class="stat-card"><div class="stat-label">Income</div><div class="stat-value" id="fi-stat-income" style="color:var(--success)">0.00</div><div class="stat-sub">this month</div></div>
       <div class="stat-card"><div class="stat-label">Net</div><div class="stat-value" id="fi-stat-net" style="color:var(--accent4)">0.00</div><div class="stat-sub">income − spent</div></div>
+      <div class="stat-card"><div class="stat-label">Savings Rate</div><div class="stat-value" id="fi-stat-savings" style="color:var(--accent3)">&mdash;</div><div class="stat-sub">income kept</div></div>
       <div class="stat-card"><div class="stat-label">Transactions</div><div class="stat-value" id="fi-stat-count" style="color:var(--accent)">0</div><div class="stat-sub">this month</div></div>
     </div>
     <div id="fi-stat-other-currencies" style="display:none;font-family:var(--mono);font-size:10px;color:var(--muted);margin:-12px 0 16px"></div>
-    <div class="small-section-label">&#9673; Spending by Category</div>
-    <div class="fi-cat-breakdown" id="fi-cat-breakdown"></div>
-    <div class="small-section-label">&#128203; All Transactions</div>
+    <div class="fi-coverage-note">Can't see: cash spending, recurring bills/subscriptions (DBS never alerts on these), or purchases below a still-open alert threshold.</div>
+
+    <div class="small-section-label">&#9673; 6-Month Trend</div>
+    <div class="fi-trend" id="fi-trend"></div>
+
+    <div class="fi-breakdown-cols">
+      <div>
+        <div class="small-section-label">&#9673; Spending by Category</div>
+        <div class="fi-cat-breakdown" id="fi-cat-breakdown"></div>
+      </div>
+      <div>
+        <div class="small-section-label">&#9673; Spending by Payment Method</div>
+        <div class="fi-cat-breakdown" id="fi-method-breakdown"></div>
+      </div>
+    </div>
+
+    <div class="fi-unmatched-header" onclick="toggleFinanceUnmatched()">
+      <span class="small-section-label" style="margin:0">&#9888; Unmatched Inbox</span>
+      <span class="fi-unmatched-badge" id="fi-unmatched-badge" style="display:none">0</span>
+      <span class="fi-unmatched-toggle" id="fi-unmatched-toggle">&#9662;</span>
+    </div>
+    <div class="fi-unmatched-list" id="fi-unmatched-list" style="display:none"></div>
+
+    <div class="section-header" style="margin-top:8px">
+      <div class="small-section-label" style="margin:0">&#128203; Transactions</div>
+      <button class="fi-csv-btn" onclick="exportFinanceCsv()" title="Export this month as CSV">&#8595; CSV</button>
+    </div>
+    <div class="fi-filter-row">
+      <input class="form-input" id="fi-search-input" placeholder="Search merchant..." oninput="setFinanceSearch(this.value)" style="flex:2">
+      <select class="form-select" id="fi-filter-cat" onchange="setFinanceCategoryFilter(this.value)" style="flex:1"><option value="all">All categories</option></select>
+    </div>
     <div class="fi-txn-list" id="fi-txn-list"><div class="empty-state"><div>&#10022;</div>No transactions yet.</div></div>
   </div>
 </div>
