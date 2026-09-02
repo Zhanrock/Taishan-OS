@@ -119,3 +119,11 @@
 .fi-txn-meta { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
 .fi-cat-select { font-family: var(--mono); font-size: 10px; padding: 4px 6px; border-radius: 6px; background: var(--surface2); text-transform: capitalize; flex-shrink: 0; }
 .fi-txn-amt { font-family: var(--mono); font-size: 13px; font-weight: 700; text-align: right; white-space: nowrap; flex-shrink: 0; }
+
+@media (max-width: 640px) {
+  .fi-txn-item { flex-wrap: wrap; }
+  .fi-txn-body { flex-basis: 100%; }
+  .fi-cat-select { order: 2; }
+  .fi-txn-amt { order: 3; margin-left: auto; }
+  .fi-recurring-toggle, .fi-txn-del, .fi-txn-confirm { order: 4; }
+}
