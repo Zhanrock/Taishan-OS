@@ -4,7 +4,7 @@ let calYear=new Date().getFullYear(), calMonth=new Date().getMonth(), calSelecte
 function calNav(dir){calMonth+=dir;if(calMonth>11){calMonth=0;calYear++;}if(calMonth<0){calMonth=11;calYear--;}renderCalendar();}
 function calGoToday(){const now=new Date();calYear=now.getFullYear();calMonth=now.getMonth();calSelectedDate=today();renderCalendar();}
 function onEvTypeChange(){const type=document.getElementById('evType').value,isClass=type==='class';document.getElementById('evRecurringSection').style.display=isClass?'block':'none';document.getElementById('evDateLabel').textContent=isClass?'SEMESTER START':'DATE';}
-function toggleEventForm(){_removeEventEditForm();editingEventId=null;const f=document.getElementById('eventAddForm');f.classList.toggle('open');if(f.classList.contains('open')){dpSet('evDate',calSelectedDate);['evTitle','evNote'].forEach(id=>document.getElementById(id).value='');['evTime','evEndTime'].forEach(id=>document.getElementById(id).value='');document.getElementById('evType').value='meeting';document.getElementById('evPriority').value='normal';document.getElementById('evRecurringSection').style.display='none';document.getElementById('evWeekPattern').value='all';document.getElementById('evTitle').focus();}}
+function toggleEventForm(){_removeEventEditForm();_removeSeriesEditForm();editingEventId=null;const f=document.getElementById('eventAddForm');f.classList.toggle('open');if(f.classList.contains('open')){dpSet('evDate',calSelectedDate);['evTitle','evNote'].forEach(id=>document.getElementById(id).value='');['evTime','evEndTime'].forEach(id=>document.getElementById(id).value='');document.getElementById('evType').value='meeting';document.getElementById('evPriority').value='normal';document.getElementById('evRecurringSection').style.display='none';document.getElementById('evWeekPattern').value='all';document.getElementById('evTitle').focus();}}
 function cancelEventForm(){document.getElementById('eventAddForm').classList.remove('open');}
 function selectCalDay(dateStr){calSelectedDate=dateStr;renderCalendar();}
 
@@ -12,6 +12,7 @@ function selectCalDay(dateStr){calSelectedDate=dateStr;renderCalendar();}
 function openEditEvent(id) {
   const wasOpen = editingEventId === id;
   _removeEventEditForm();
+  _removeSeriesEditForm();
   if (wasOpen) return;
   editingEventId = id;
   _injectEventEditForm(id);
@@ -20,6 +21,77 @@ function _removeEventEditForm() {
   const old = document.getElementById('inlineEventEditForm');
   if (old) old.remove();
   editingEventId = null;
+}
+
+// ── SERIES (RECURRING CLASS) BULK EDIT ──
+let editingSeriesId = null;
+function openEditEventSeries(recurId, anchorEventId) {
+  const wasOpen = editingSeriesId === recurId;
+  _removeEventEditForm();
+  _removeSeriesEditForm();
+  if (wasOpen) return;
+  editingSeriesId = recurId;
+  _injectSeriesEditForm(recurId, anchorEventId);
+}
+function _removeSeriesEditForm() {
+  const old = document.getElementById('inlineSeriesEditForm');
+  if (old) old.remove();
+  editingSeriesId = null;
+}
+function _injectSeriesEditForm(recurId, anchorEventId) {
+  const rows = state.events.filter(x => x.recur_id === recurId);
+  if (!rows.length) return;
+  const e = rows.find(x => x.id === anchorEventId) || rows[0];
+  const anchor = document.getElementById('event-' + (anchorEventId || e.id));
+  if (!anchor) return;
+  const dates = rows.map(r => r.date).sort();
+  const form = document.createElement('div');
+  form.className = 'add-form open';
+  form.id = 'inlineSeriesEditForm';
+  form.style.margin = '4px 0';
+  form.innerHTML = `
+    <div style="font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:0.05em;margin-bottom:2px">EDIT ALL ${rows.length} SESSIONS &middot; ${fmtDate(dates[0])} &rarr; ${fmtDate(dates[dates.length-1])}</div>
+    <div class="form-row">
+      <input class="form-input" id="seTitle" value="${e.title.replace(/"/g,'&quot;')}" placeholder="Title..." style="flex:2">
+      <select class="form-select" id="seType">
+        <option value="meeting" ${e.type==='meeting'?'selected':''}>&#128203; Meeting</option>
+        <option value="class" ${e.type==='class'?'selected':''}>&#128218; Class</option>
+        <option value="exam" ${e.type==='exam'?'selected':''}>&#127919; Exam</option>
+        <option value="deadline" ${e.type==='deadline'?'selected':''}>&#128308; Deadline</option>
+        <option value="personal" ${e.type==='personal'?'selected':''}>&#11088; Personal</option>
+      </select>
+      <select class="form-select" id="sePriority">
+        <option value="normal" ${(e.priority||'normal')==='normal'?'selected':''}>Normal</option>
+        <option value="high" ${e.priority==='high'?'selected':''}>&#128308; High Priority</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <div style="display:flex;flex-direction:column;gap:3px;flex:1"><label style="font-size:10px;color:var(--muted);font-family:var(--mono)">START</label><input class="form-input" id="seTime" type="time" value="${e.time||''}"></div>
+      <div style="display:flex;flex-direction:column;gap:3px;flex:1"><label style="font-size:10px;color:var(--muted);font-family:var(--mono)">END</label><input class="form-input" id="seEndTime" type="time" value="${e.end_time||''}"></div>
+    </div>
+    <input class="form-input" id="seNote" placeholder="Notes / location / link..." value="${(e.note||'').replace(/"/g,'&quot;')}" style="width:100%">
+    <div class="form-actions">
+      <button class="btn-cancel" onclick="_removeSeriesEditForm()">Cancel</button>
+      <button class="btn-save" onclick="submitEditEventSeries('${recurId}')">SAVE ALL ${rows.length} SESSIONS</button>
+    </div>
+  `;
+  anchor.insertAdjacentElement('afterend', form);
+  form.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  document.getElementById('seTitle').focus();
+}
+async function submitEditEventSeries(recurId) {
+  if (!recurId) return;
+  const updates = { title:document.getElementById('seTitle').value.trim(), type:document.getElementById('seType').value, priority:document.getElementById('sePriority').value, time:document.getElementById('seTime').value||null, end_time:document.getElementById('seEndTime').value||null, note:document.getElementById('seNote').value.trim()||null };
+  if (!updates.title) { notify('⚠ Error','Title required','var(--accent2)'); return; }
+  setSyncStatus('syncing');
+  const { error } = await db.from('events').update(updates).eq('recur_id', recurId);
+  if (error) { notify('⚠ Error','Could not update series','var(--danger)'); setSyncStatus('error'); return; }
+  let count = 0;
+  state.events.forEach(e => { if (e.recur_id === recurId) { Object.assign(e, updates); count++; } });
+  setSyncStatus('synced');
+  _removeSeriesEditForm();
+  notify('✏ Series Updated', `${updates.title} · ${count} sessions`, 'var(--accent)');
+  renderCalendar(); renderCountdowns();
 }
 function _injectEventEditForm(id) {
   const e = state.events.find(x => x.id === id);
@@ -86,6 +158,21 @@ async function deleteEvent(id) {
   renderCalendar(); renderCountdowns();
   notify('\uD83D\uDDD1 Deleted','Event removed','var(--muted)');
 }
+async function deleteEventSeries(recurId) {
+  const rows = state.events.filter(e => e.recur_id === recurId);
+  if (!rows.length) return;
+  if (!confirm(`Delete all ${rows.length} sessions in this series? This cannot be undone.`)) return;
+  setSyncStatus('syncing');
+  const { error } = await db.from('events').delete().eq('recur_id', recurId);
+  if (error) { notify('\u26A0 Error','Could not delete series','var(--danger)'); setSyncStatus('error'); return; }
+  const title = rows[0].title;
+  state.events = state.events.filter(e => e.recur_id !== recurId);
+  setSyncStatus('synced');
+  if (editingSeriesId === recurId) _removeSeriesEditForm();
+  if (editingEventId && rows.some(r => r.id === editingEventId)) _removeEventEditForm();
+  renderCalendar(); renderCountdowns();
+  notify('\uD83D\uDDD1 Series Deleted', `${title} \u00B7 ${rows.length} sessions removed`, 'var(--muted)');
+}
 // ── WEEK PARITY (odd/even week classes; week 1 = the week containing the semester start) ──
 const WEEK_PATTERN_LABELS={all:'every week',odd:'odd weeks',even:'even weeks'};
 function _dayNumber(d){return Math.floor(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/86400000);}
@@ -127,7 +214,7 @@ function renderCalendar(){
   state.events.forEach(e=>{if(!evMap[e.date])evMap[e.date]=[];evMap[e.date].push(e);});
   for(let i=firstDay-1;i>=0;i--){const cell=document.createElement('div');cell.className='cal-cell other-month';cell.innerHTML=`<div class="cal-cell-num">${prevDays-i}</div>`;grid.appendChild(cell);}
   for(let d=1;d<=daysInMonth;d++){
-    const dateStr=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,isToday=dateStr===today(),isSel=dateStr===calSelectedDate,evs=evMap[dateStr]||[],hasExam=evs.some(e=>e.type==='exam'),hasHigh=evs.some(e=>e.priority==='high');
+    const dateStr=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,isToday=dateStr===today(),isSel=dateStr===calSelectedDate,evs=(evMap[dateStr]||[]).slice().sort((a,b)=>(a.time||'')<(b.time||'')?-1:1),hasExam=evs.some(e=>e.type==='exam'),hasHigh=evs.some(e=>e.priority==='high');
     const cell=document.createElement('div');cell.className='cal-cell'+(isToday?' today':'')+(isSel?' selected':'');
     // Heatmap background
     const heat = _heatColor(heatMap[dateStr]);
@@ -152,9 +239,13 @@ function renderDayPanel(){
   if(!dayEvs.length){evEl.innerHTML='';emptyEl.style.display='block';return;}emptyEl.style.display='none';
   evEl.innerHTML=dayEvs.map(e=>{
     const isHigh=e.priority==='high';
-    return `<div class="event-item" id="event-${e.id}"><div class="event-color-bar type-${e.type}" style="background:${EVENT_COLORS[e.type]||'#666'}"></div><div class="event-body"><div class="event-title">${e.title} ${isHigh?'<span class="event-high-badge">HIGH PRIORITY</span>':''}</div><div class="event-meta">${e.time?`<span class="event-time">${e.time}${e.end_time?' \u2192 '+e.end_time:''}</span>`:''}<span class="event-type-tag event-type-${e.type}">${e.type}</span></div>${e.note?`<div class="event-note">${e.note}</div>`:''}</div><button class="event-del" onclick="openEditEvent('${e.id}')" title="Edit" style="font-size:12px">&#9999;</button><button class="event-del" onclick="deleteEvent('${e.id}')">&#10005;</button></div>`;
+    const seriesCount=e.recur_id?state.events.filter(x=>x.recur_id===e.recur_id).length:0;
+    const seriesBtn=e.recur_id?`<button class="event-del" onclick="openEditEventSeries('${e.recur_id}','${e.id}')" title="Edit all ${seriesCount} sessions in this series" style="font-size:12px">&#128257;</button>`:'';
+    const seriesDelBtn=e.recur_id?`<button class="event-del" onclick="deleteEventSeries('${e.recur_id}')" title="Delete all ${seriesCount} sessions in this series" style="font-size:12px">&#128465;</button>`:'';
+    return `<div class="event-item" id="event-${e.id}"><div class="event-color-bar type-${e.type}" style="background:${EVENT_COLORS[e.type]||'#666'}"></div><div class="event-body"><div class="event-title">${e.title} ${isHigh?'<span class="event-high-badge">HIGH PRIORITY</span>':''}</div><div class="event-meta">${e.time?`<span class="event-time">${e.time}${e.end_time?' \u2192 '+e.end_time:''}</span>`:''}<span class="event-type-tag event-type-${e.type}">${e.type}</span></div>${e.note?`<div class="event-note">${e.note}</div>`:''}</div><button class="event-del" onclick="openEditEvent('${e.id}')" title="Edit this session only" style="font-size:12px">&#9999;</button>${seriesBtn}<button class="event-del" onclick="deleteEvent('${e.id}')" title="Delete this session only">&#10005;</button>${seriesDelBtn}</div>`;
   }).join('');
   if (editingEventId) _injectEventEditForm(editingEventId);
+  if (editingSeriesId) { const anchorEv=dayEvs.find(e=>e.recur_id===editingSeriesId); if (anchorEv) _injectSeriesEditForm(editingSeriesId, anchorEv.id); }
 }
 
 function renderUpcoming(){const el=document.getElementById('calUpcoming'),t=today(),cutoff=new Date();cutoff.setDate(cutoff.getDate()+14);const cutoffStr=cutoff.toLocaleDateString('en-CA'),upcoming=state.events.filter(e=>e.date>=t&&e.date<=cutoffStr).sort((a,b)=>(a.date+(a.time||''))<(b.date+(b.time||''))?-1:1);if(!upcoming.length){el.innerHTML='<div style="font-family:var(--mono);font-size:11px;color:var(--muted);padding:12px 0">No upcoming events in the next 14 days.</div>';return;}el.innerHTML=upcoming.map(e=>{const d=new Date(e.date+'T00:00:00'),diff=Math.ceil((d-new Date(t+'T00:00:00'))/86400000),label=diff===0?'Today':diff===1?'Tomorrow':d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}),isSoon=diff<=2,isHighAlert=e.type==='exam'||e.priority==='high';return`<div class="upcoming-item"><div class="upcoming-date ${isSoon||isHighAlert?'soon':''}">${label}</div><div style="flex:1"><div style="display:flex;align-items:center;gap:6px"><div style="width:6px;height:6px;border-radius:50%;background:${EVENT_COLORS[e.type]||'#666'};flex-shrink:0"></div><div class="upcoming-title">${e.title}</div>${e.priority==='high'?'<span class="event-high-badge">HIGH</span>':''}</div><div class="upcoming-sub">${e.time?e.time+' \u00B7 ':''}${e.type}${e.note?' \u00B7 '+e.note:''}</div></div></div>`;}).join('');}
