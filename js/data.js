@@ -5,9 +5,16 @@ async function loadAllData() {
     const uid = currentUser.id;
     const { data: habits } = await db.from('habits').select('*').eq('user_id', uid);
     if (habits) {
+      // nightProtocolItems must load before nightChecks below, since the nightChecks
+      // reset builds its keys from the (possibly custom) item list.
+      const npRow = habits.find(row => row.habit_id === 'nightProtocolItems');
+      if (npRow) loadNightProtocolItemsFromRow(npRow);
       habits.forEach(row => {
         if (state.streaks[row.habit_id]) state.streaks[row.habit_id] = { count: row.count ?? 0, history: row.history ?? [], last_checked: row.last_checked ?? null };
-        if (row.habit_id === 'nightChecks') { try { state.nightChecks = JSON.parse(row.last_checked || '{}'); } catch(e) {} if (row.count !== today()) state.nightChecks = { task:false, prep:false, phone:false }; }
+        if (row.habit_id === 'nightChecks') {
+          try { state.nightChecks = JSON.parse(row.last_checked || '{}'); } catch(e) {}
+          if (row.count !== today()) state.nightChecks = Object.fromEntries(nightProtocolItems.map(c => [c.id, false]));
+        }
         if (row.habit_id === 'morningCard') { try { state.morningCard = JSON.parse(row.last_checked); } catch(e) {} }
         if (row.habit_id === 'scheduleBlocks') { loadScheduleBlocksFromRow(row); }
         if (row.habit_id === 'sleepLog') {

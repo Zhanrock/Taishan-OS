@@ -18,6 +18,7 @@
 // per-user — this file only contains the generic rendering/editing engine.
 
 let openDomainId = null;
+let domainLibAddOpen = false;
 
 // ── NAVIGATION ──
 
@@ -57,11 +58,15 @@ function renderDomainLibrary() {
   (LIFE_DOMAINS || []).forEach(d => { (groups[d.cat] = groups[d.cat] || []).push(d); });
   const order = ['work', 'study', 'health', 'personal', 'leisure', 'chore', 'other'];
 
-  let html = `<div class="dom-lib-intro">Every domain from your Daily Planner, in one place — tap one to see its plans, links, and logs anytime, not just when it shows up in today's tasks.</div>`;
+  let html = `<div class="dom-lib-header">
+    <div class="dom-lib-intro">Every domain from your Daily Planner, in one place — tap one to see its plans, links, and logs anytime, not just when it shows up in today's tasks.</div>
+    <button class="btn-add" onclick="toggleDomainLibAdd()">${domainLibAddOpen ? '✕ CANCEL' : '+ ADD DOMAIN'}</button>
+  </div>
+  ${domainLibAddFormHTML()}`;
 
   const catsPresent = order.filter(c => groups[c] && groups[c].length);
   if (catsPresent.length === 0) {
-    html += `<div class="empty-state"><div>◈</div>No domains yet. Add some in the Daily tab's ⚙ Domains panel first.</div>`;
+    html += `<div class="empty-state"><div>◈</div>No domains yet. Add one above.</div>`;
   }
 
   catsPresent.forEach(cat => {
@@ -71,7 +76,12 @@ function renderDomainLibrary() {
       <div class="dom-lib-grid">
         ${groups[cat].map(d => {
           const blockCt = (d.detailContent || []).length;
+          const isAnchor = d.tags && d.tags.includes('anchor');
+          const delBtn = isAnchor
+            ? `<span class="dom-lib-card-core" title="Core domain — can't be removed">CORE</span>`
+            : `<button class="dom-lib-card-del" onclick="removeDomainFromLibrary('${d.id}', event)" title="Delete domain">✕</button>`;
           return `<div class="dom-lib-card" onclick="goToDomainsTab('${d.id}')">
+            ${delBtn}
             <div class="dom-lib-card-title">${esc(d.title)}</div>
             <div class="dom-lib-card-meta">${blockCt ? blockCt + ' block' + (blockCt === 1 ? '' : 's') : 'no details yet'}</div>
           </div>`;
@@ -81,6 +91,99 @@ function renderDomainLibrary() {
   });
 
   container.innerHTML = html;
+}
+
+function toggleDomainLibAdd() {
+  domainLibAddOpen = !domainLibAddOpen;
+  renderDomainLibrary();
+}
+
+function domainLibAddFormHTML() {
+  if (!domainLibAddOpen) return '';
+  return `<div class="dm-add-section" id="domainLibAddForm" style="margin-bottom:20px">
+    <div class="dm-add-title">▸ Add New Domain</div>
+    <div class="dm-add-row">
+      <input class="form-input" id="dl-new-title" placeholder="e.g. Japanese Study, Guitar, Swimming..." style="flex:2;min-width:140px">
+      <select class="form-select" id="dl-new-cat">
+        <option value="study">Study</option>
+        <option value="work">Work</option>
+        <option value="health">Health</option>
+        <option value="personal">Personal</option>
+        <option value="leisure">Leisure</option>
+        <option value="chore">Chore</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="dm-add-row" style="margin-top:8px">
+      <div style="display:flex;flex-direction:column;gap:3px;flex:1">
+        <label style="font-size:9px;color:var(--muted);font-family:var(--mono)">EVERY X DAYS</label>
+        <input class="form-input" id="dl-new-freq" type="number" min="1" max="30" value="2" style="width:100%">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;flex:1">
+        <label style="font-size:9px;color:var(--muted);font-family:var(--mono)">PRIORITY (1–10)</label>
+        <input class="form-input" id="dl-new-pri" type="number" min="1" max="10" value="5" style="width:100%">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;flex:1">
+        <label style="font-size:9px;color:var(--muted);font-family:var(--mono)">TIME SLOT</label>
+        <input class="form-input" id="dl-new-time" type="time" value="16:00" style="width:100%">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;flex:1">
+        <label style="font-size:9px;color:var(--muted);font-family:var(--mono)">DURATION (min)</label>
+        <input class="form-input" id="dl-new-dur" type="number" min="5" max="480" value="45" style="width:100%">
+      </div>
+    </div>
+    <input class="form-input" id="dl-new-note" placeholder="What you do during this session (optional)" style="width:100%;margin-top:8px">
+    <div class="form-actions" style="margin-top:10px">
+      <button class="btn-cancel" onclick="toggleDomainLibAdd()">Cancel</button>
+      <button class="btn-save" onclick="addNewDomainFromLibrary()">+ ADD DOMAIN</button>
+    </div>
+  </div>`;
+}
+
+async function addNewDomainFromLibrary() {
+  const title = document.getElementById('dl-new-title').value.trim();
+  if (!title) { notify('⚠ Error', 'Domain name required', 'var(--accent2)'); return; }
+  const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') + '_' + Date.now();
+  const newDomain = {
+    id, title,
+    cat:                 document.getElementById('dl-new-cat').value,
+    pri:                 'medium',
+    time:                document.getElementById('dl-new-time').value || '16:00',
+    duration:            parseInt(document.getElementById('dl-new-dur').value) || 45,
+    freqDays:            parseInt(document.getElementById('dl-new-freq').value) || 2,
+    basePriority:        parseInt(document.getElementById('dl-new-pri').value) || 5,
+    urgencyDeadlineDays: 7,
+    tags:                [],
+    note:                document.getElementById('dl-new-note').value.trim() || '',
+    detailContent:       [],
+  };
+  setSyncStatus('syncing');
+  const ok = await addDomainToSupabase(newDomain);
+  if (!ok) { setSyncStatus('error'); return; }
+  LIFE_DOMAINS.push(newDomain);
+  setSyncStatus('synced');
+  domainLibAddOpen = false;
+  notify('◈ Domain Added', `"${title}" saved to cloud`, 'var(--accent)');
+  renderDomainLibrary();
+  const badge = document.getElementById('di-domain-count');
+  if (badge) badge.textContent = LIFE_DOMAINS.length + ' domains';
+}
+
+async function removeDomainFromLibrary(id, evt) {
+  if (evt) evt.stopPropagation();
+  const d = LIFE_DOMAINS.find(x => x.id === id);
+  if (!d) return;
+  if (d.tags && d.tags.includes('anchor')) { notify('⚠ Cannot Remove', 'Anchor domains are core to the system', 'var(--accent2)'); return; }
+  if (!confirm(`Delete domain "${d.title}"? This also removes its saved links, notes, checklists, and logs.`)) return;
+  setSyncStatus('syncing');
+  await removeDomainFromSupabase(d);
+  LIFE_DOMAINS = LIFE_DOMAINS.filter(x => x.id !== id);
+  setSyncStatus('synced');
+  if (openDomainId === id) openDomainId = null;
+  notify('◈ Removed', `"${d.title}" deleted from cloud`, 'var(--muted)');
+  renderDomainLibrary();
+  const badge = document.getElementById('di-domain-count');
+  if (badge) badge.textContent = LIFE_DOMAINS.length + ' domains';
 }
 
 // ── DETAIL VIEW ──

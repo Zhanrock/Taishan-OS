@@ -309,7 +309,10 @@
     <div class="schedule-grid" id="scheduleGrid"></div>
     <div class="schedule-actions"><button class="sched-btn danger" onclick="resetSchedule()">&#8635; RESET TO DEFAULT</button></div>
     <br>
-    <div class="small-section-label" style="margin-top:12px;">&#9889; Night Protocol Checklist</div>
+    <div class="section-header" style="margin-top:12px">
+      <div class="small-section-label" style="margin:0">&#9889; Night Protocol Checklist</div>
+      <button class="btn-add" onclick="toggleAddNightCheck()">+ ADD CHECK</button>
+    </div>
     <div class="task-list" id="nightChecklist"></div>
     <div class="tomorrow-briefing" id="tomorrowBriefing" style="display:none"></div>
     <div class="card-section">

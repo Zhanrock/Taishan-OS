@@ -1,5 +1,6 @@
 let currentUser = null;
 let scheduleBlocks = JSON.parse(JSON.stringify(DEFAULT_SCHEDULE_BLOCKS)); // mutable, user-editable copy
+let nightProtocolItems = JSON.parse(JSON.stringify(NIGHT_CHECKS)); // mutable, user-editable copy
 let state = {
   streaks: {
     wake:     { count:0, history:[], last_checked:null },

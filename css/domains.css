@@ -1,14 +1,19 @@
 /* ── DOMAIN LIBRARY + DETAIL PAGES ── */
 
-.dom-lib-intro { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+.dom-lib-intro { font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.5; }
+.dom-lib-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.dom-lib-header .dom-lib-intro { flex: 1; min-width: 200px; margin-bottom: 0; }
 
 .dom-lib-section { margin-bottom: 24px; }
 .dom-lib-section-title { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 10px; }
 .dom-lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
-.dom-lib-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; cursor: pointer; transition: border-color 0.2s, transform 0.15s; }
+.dom-lib-card { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; cursor: pointer; transition: border-color 0.2s, transform 0.15s; }
 .dom-lib-card:hover { border-color: var(--accent); transform: translateY(-1px); }
-.dom-lib-card-title { font-family: var(--mono); font-size: 14px; font-weight: 550; margin-bottom: 4px; }
+.dom-lib-card-title { font-family: var(--mono); font-size: 14px; font-weight: 550; margin-bottom: 4px; padding-right: 16px; }
 .dom-lib-card-meta { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+.dom-lib-card-del { position: absolute; top: 10px; right: 10px; background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 2px 4px; z-index: 2; }
+.dom-lib-card-del:hover { color: var(--danger); }
+.dom-lib-card-core { position: absolute; top: 10px; right: 10px; font-family: var(--mono); font-size: 8px; letter-spacing: 0.06em; color: var(--accent); background: rgba(124,106,255,0.08); border: 1px solid rgba(124,106,255,0.4); border-radius: 4px; padding: 2px 5px; }
 
 .dom-back-btn { background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; color: var(--muted); font-family: var(--mono); font-size: 11px; cursor: pointer; margin-bottom: 18px; }
 .dom-back-btn:hover { color: var(--text); border-color: var(--accent); }

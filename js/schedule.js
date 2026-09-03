@@ -298,16 +298,39 @@ async function resetSchedule() {
 }
 
 // ── NIGHT PROTOCOL ──
+function loadNightProtocolItemsFromRow(row) {
+  try {
+    const parsed = JSON.parse(row.last_checked);
+    if (Array.isArray(parsed) && parsed.length > 0) nightProtocolItems = parsed;
+  } catch(e) {}
+}
+
+async function saveNightProtocolItems() {
+  setSyncStatus('syncing');
+  await db.from('habits').upsert({
+    user_id: currentUser.id, habit_id: 'nightProtocolItems',
+    count: today(), last_checked: JSON.stringify(nightProtocolItems), history: []
+  }, { onConflict: 'user_id,habit_id' });
+  setSyncStatus('synced');
+}
+
 function renderNightChecklist() {
-  document.getElementById('nightChecklist').innerHTML = NIGHT_CHECKS.map(c => {
+  document.getElementById('nightChecklist').innerHTML = nightProtocolItems.map((c, i) => {
     const done = state.nightChecks[c.id];
-    return `<div class="task-item ${done?'done':''}"><div class="task-check ${done?'checked':''}" onclick="toggleNight('${c.id}')">${done?'\u2713':''}</div><div class="task-body"><div class="task-name">${c.label}</div></div></div>`;
+    return `<div class="task-item ${done?'done':''}" id="nc-item-${i}">
+      <div class="task-check ${done?'checked':''}" onclick="toggleNight('${c.id}')">${done?'\u2713':''}</div>
+      <div class="task-body"><div class="task-name">${esc(c.label)}</div></div>
+      <button class="task-del" onclick="openEditNightCheck(${i})" title="Edit">\u270f</button>
+      <button class="task-del" onclick="deleteNightCheck(${i})" title="Delete">\u2715</button>
+    </div>`;
   }).join('');
+  if (editingNightCheckIndex !== null) _injectNightCheckEditForm(editingNightCheckIndex);
+  if (addingNightCheck) _renderAddNightCheckForm();
 }
 
 async function toggleNight(id) {
   state.nightChecks[id] = !state.nightChecks[id];
-  const allDone = Object.values(state.nightChecks).every(Boolean);
+  const allDone = nightProtocolItems.length > 0 && nightProtocolItems.every(c => state.nightChecks[c.id]);
   setSyncStatus('syncing');
   await db.from('habits').upsert({ user_id:currentUser.id, habit_id:'nightChecks', count:today(), last_checked:JSON.stringify(state.nightChecks), history:[] }, { onConflict:'user_id,habit_id' });
   setSyncStatus('synced');
@@ -318,6 +341,121 @@ async function toggleNight(id) {
     setTimeout(() => renderTomorrowBriefing(), 900);
     notify('\uD83C\uDF19 Night Protocol Complete!', "Tomorrow's briefing ready.", 'var(--accent)');
   }
+  renderNightChecklist();
+  renderMorningCard();
+}
+
+// ── ADD / EDIT / DELETE NIGHT CHECK ITEMS ──
+let addingNightCheck = false;
+let editingNightCheckIndex = null;
+
+function toggleAddNightCheck() {
+  _removeNightCheckEditForm();
+  addingNightCheck = !addingNightCheck;
+  renderNightChecklist();
+}
+
+function _renderAddNightCheckForm() {
+  const existing = document.getElementById('addNightCheckForm');
+  if (existing) existing.remove();
+  if (!addingNightCheck) return;
+  const container = document.getElementById('nightChecklist');
+  const form = document.createElement('div');
+  form.id = 'addNightCheckForm';
+  form.className = 'add-form open';
+  form.style.cssText = 'margin-top: 10px;';
+  form.innerHTML = [
+    '<div style="font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:0.05em;margin-bottom:2px">NEW CHECK</div>',
+    '<input class="form-input" id="ncNewLabel" placeholder="e.g. Fill water bottle for tomorrow" style="width:100%">',
+    '<div class="form-actions">',
+    '  <button class="btn-cancel" onclick="cancelAddNightCheck()">Cancel</button>',
+    '  <button class="btn-save" onclick="submitAddNightCheck()">SAVE CHECK</button>',
+    '</div>'
+  ].join('');
+  container.insertAdjacentElement('afterend', form);
+  document.getElementById('ncNewLabel').focus();
+}
+
+function cancelAddNightCheck() {
+  addingNightCheck = false;
+  const f = document.getElementById('addNightCheckForm');
+  if (f) f.remove();
+}
+
+async function submitAddNightCheck() {
+  const label = document.getElementById('ncNewLabel').value.trim();
+  if (!label) { notify('⚠ Error', 'Check text required', 'var(--accent2)'); return; }
+  const id = 'nc_' + Date.now();
+  nightProtocolItems.push({ id, label });
+  state.nightChecks[id] = false;
+  await saveNightProtocolItems();
+  cancelAddNightCheck();
+  notify('✓ Check added', label, 'var(--accent)');
+  renderNightChecklist();
+}
+
+function openEditNightCheck(i) {
+  cancelAddNightCheck();
+  const wasOpen = editingNightCheckIndex === i;
+  _removeNightCheckEditForm();
+  if (wasOpen) return;
+  editingNightCheckIndex = i;
+  _injectNightCheckEditForm(i);
+}
+
+function _removeNightCheckEditForm() {
+  const old = document.getElementById('inlineNightCheckEditForm');
+  if (old) old.remove();
+  editingNightCheckIndex = null;
+}
+
+function _injectNightCheckEditForm(i) {
+  const c = nightProtocolItems[i];
+  if (!c) return;
+  const item = document.getElementById('nc-item-' + i);
+  if (!item) return;
+  const form = document.createElement('div');
+  form.id = 'inlineNightCheckEditForm';
+  const wrap = document.createElement('div');
+  wrap.className = 'add-form open';
+  wrap.style.margin = '8px 0';
+  wrap.innerHTML = [
+    '<div style="font-size:11px;color:var(--muted);font-family:var(--mono);letter-spacing:0.05em;margin-bottom:2px">EDIT CHECK</div>',
+    '<input class="form-input" id="ncEditLabel" placeholder="Check text..." style="width:100%">',
+    '<div class="form-actions">',
+    '  <button class="btn-cancel" onclick="_removeNightCheckEditForm()">Cancel</button>',
+    '  <button class="btn-save" onclick="submitEditNightCheck()">SAVE CHANGES</button>',
+    '</div>'
+  ].join('');
+  form.appendChild(wrap);
+  item.insertAdjacentElement('afterend', form);
+  const inp = document.getElementById('ncEditLabel');
+  inp.value = c.label;
+  inp.focus();
+}
+
+async function submitEditNightCheck() {
+  if (editingNightCheckIndex === null) return;
+  const label = document.getElementById('ncEditLabel').value.trim();
+  if (!label) { notify('⚠ Error', 'Check text required', 'var(--accent2)'); return; }
+  nightProtocolItems[editingNightCheckIndex] = Object.assign({}, nightProtocolItems[editingNightCheckIndex], { label });
+  await saveNightProtocolItems();
+  _removeNightCheckEditForm();
+  notify('✓ Check updated', label, 'var(--accent)');
+  renderNightChecklist();
+}
+
+async function deleteNightCheck(i) {
+  const c = nightProtocolItems[i];
+  if (!c) return;
+  if (editingNightCheckIndex === i) _removeNightCheckEditForm();
+  nightProtocolItems.splice(i, 1);
+  delete state.nightChecks[c.id];
+  await saveNightProtocolItems();
+  setSyncStatus('syncing');
+  await db.from('habits').upsert({ user_id:currentUser.id, habit_id:'nightChecks', count:today(), last_checked:JSON.stringify(state.nightChecks), history:[] }, { onConflict:'user_id,habit_id' });
+  setSyncStatus('synced');
+  notify('🗑 Check removed', '', 'var(--muted)');
   renderNightChecklist();
   renderMorningCard();
 }
