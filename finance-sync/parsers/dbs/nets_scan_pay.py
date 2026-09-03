@@ -46,7 +46,7 @@ def parse(msg) -> Transaction:
     return Transaction(
         bank="dbs",
         account_mask=common.account_mask(my_line),
-        txn_date=txn_date or (msg.get("Date", "") or ""),
+        txn_date=txn_date or (email_date.date().isoformat() if email_date else ""),
         amount=amount,
         currency=currency,
         direction=direction,
