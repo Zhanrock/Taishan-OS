@@ -16,6 +16,13 @@ async function handleAuth(type) {
 
 async function signOut() { await db.auth.signOut(); location.reload(); }
 
+document.addEventListener('DOMContentLoaded', () => {
+  ['auth-email', 'auth-password'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') handleAuth('login'); });
+  });
+});
+
 // One-time cleanup: remove old localStorage keys that were migrated to Supabase.
 // Safe to run on every login — keys simply won't exist after the first run.
 function purgeLegacyLocalStorage(userId) {
