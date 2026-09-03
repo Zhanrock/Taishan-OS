@@ -11,6 +11,16 @@ SENDER = "ibanking.alert@dbs.com"
 DATETIME_RE = re.compile(r"Date\s*&\s*Time:\s*(?P<datetime>\d{1,2}\s+\w+\s+\d{1,2}:\d{2})")
 # S$1.20 (NETS QR / digital) and SGD1.20 (transfer-style templates) both occur.
 AMOUNT_RE = re.compile(r"Amount:\s*(?P<currency>[A-Z]{3}|S\$)\s*(?P<amount>[\d,]+\.\d{2})")
+# "digibank Alerts - You've received a transfer" -- confirmed against a real
+# email. Unlike the other PayNow template, this one has no Amount:/Date &
+# Time: labels at all; amount, currency and the full (year-inclusive) date
+# are inline prose: "You have received SGD 12.50 via PayNow on 02 Sep 2026
+# 23:49 SGT."
+RECEIVED_TRANSFER_RE = re.compile(
+    r"You have received\s+(?P<currency>[A-Z]{3})\s*(?P<amount>[\d,]+\.\d{2})"
+    r"\s+via\s+PayNow\s+on\s+(?P<datetime>\d{1,2}\s+\w+\s+\d{4}\s+\d{1,2}:\d{2})",
+    re.IGNORECASE,
+)
 FROM_RE = re.compile(r"From:\s*(?P<party>.+)")
 TO_RE = re.compile(r"To:\s*(?P<party>.+)")
 TXN_REF_RE = re.compile(r"Transaction Ref:\s*(?P<ref>\S+)")
@@ -69,6 +79,24 @@ def resolve_txn_date(dt_text: str | None, email_date) -> str | None:
     if parsed > email_date + timedelta(days=3):
         parsed = parsed.replace(year=parsed.year - 1)
     return parsed.date().isoformat()
+
+
+def parse_received_transfer(body: str) -> tuple[float, str, str] | None:
+    """Amount/currency/date for the "You've received a transfer" narrative
+    template (see RECEIVED_TRANSFER_RE). This template's date already
+    includes the year, so -- unlike resolve_txn_date's yearless "DD Mon
+    HH:MM" -- no year-guessing against the email's own Date header is
+    needed."""
+    match = RECEIVED_TRANSFER_RE.search(body)
+    if not match:
+        return None
+    amount = float(match.group("amount").replace(",", ""))
+    currency = normalize_currency(match.group("currency"))
+    try:
+        parsed = dateparser.parse(match.group("datetime"))
+    except (ValueError, TypeError, OverflowError):
+        return None
+    return amount, currency, parsed.date().isoformat()
 
 
 def txn_ref(body: str) -> str | None:

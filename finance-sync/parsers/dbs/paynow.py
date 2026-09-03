@@ -22,16 +22,25 @@ def parse(msg) -> Transaction:
     to_match = common.TO_RE.search(body)
     from_line = from_match.group("party").strip() if from_match else ""
     to_line = to_match.group("party").strip() if to_match else ""
-    direction = common.detect_direction(from_line, to_line)
-    my_line = to_line if direction == "credit" else from_line
-    counterparty_line = from_line if direction == "credit" else to_line
 
     email_date = common.safe_email_date(msg)
-    dt_match = common.DATETIME_RE.search(body)
-    txn_date = common.resolve_txn_date(
-        dt_match.group("datetime") if dt_match else None, email_date
-    )
-    amount, currency = common.parse_amount(body)
+    received = common.parse_received_transfer(body)
+    if received:
+        # This template only confirms the incoming-transfer case ("You've
+        # received a transfer") -- direction is known for certain, no need
+        # to guess it from the From/To lines.
+        amount, currency, txn_date = received
+        direction = "credit"
+    else:
+        direction = common.detect_direction(from_line, to_line)
+        dt_match = common.DATETIME_RE.search(body)
+        txn_date = common.resolve_txn_date(
+            dt_match.group("datetime") if dt_match else None, email_date
+        )
+        amount, currency = common.parse_amount(body)
+
+    my_line = to_line if direction == "credit" else from_line
+    counterparty_line = from_line if direction == "credit" else to_line
 
     return Transaction(
         bank="dbs",

@@ -50,3 +50,24 @@ def test_paynow_not_claimed_by_nets_scan_pay():
     msg = _load("dbs_paynow.eml")
     assert dbs.nets_scan_pay.matches(msg) is False
     assert dbs.paynow.matches(msg) is True
+
+
+def test_paynow_received_transfer():
+    """The narrative "You've received a transfer" template has no
+    Amount:/Date & Time: labels -- everything is inline prose. Before the
+    RECEIVED_TRANSFER_RE fallback, this fell through to detect_direction's
+    debit default and AMOUNT_RE's 0.0 default, silently inserting a wrong
+    (debit, SGD 0.00) row instead of the actual (credit, SGD 12.50)."""
+    msg = _load("dbs_paynow_received.eml")
+    assert dbs.paynow.matches(msg) is True
+
+    txn = dbs.parse(msg)
+    assert txn["amount"] == 12.50
+    assert txn["currency"] == "SGD"
+    assert txn["direction"] == "credit"
+    assert txn["merchant"] == "SAMPLE SENDER NAME"
+    assert txn["account_mask"] == "0000"
+    assert txn["txn_date"] == "2026-09-02"
+    assert txn["txn_ref"] == "1788364140012284715400C100000000000"
+    assert txn["status"] == "posted"
+    assert txn["payment_method"] == "paynow"
