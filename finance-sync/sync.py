@@ -285,6 +285,21 @@ def run(dry_run: bool) -> None:
         supabase.table("finance_transactions").insert(rows).execute()
 
     if unmatched_rows:
+        existing_unmatched_resp = (
+            supabase.table("finance_unmatched")
+            .select("gmail_id")
+            .eq("user_id", user_id)
+            .in_("gmail_id", [r["gmail_id"] for r in unmatched_rows])
+            .execute()
+        )
+        existing_unmatched_ids = {r["gmail_id"] for r in existing_unmatched_resp.data}
+        before = len(unmatched_rows)
+        unmatched_rows = [r for r in unmatched_rows if r["gmail_id"] not in existing_unmatched_ids]
+        if before - len(unmatched_rows):
+            print(f"Skipped {before - len(unmatched_rows)} already-logged unmatched email(s) "
+                  "(same email re-fetched inside the overlap window) -- not resetting resolved flag")
+
+    if unmatched_rows:
         supabase.table("finance_unmatched").upsert(
             unmatched_rows, on_conflict="user_id,gmail_id"
         ).execute()
