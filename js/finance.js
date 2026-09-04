@@ -118,12 +118,47 @@ function renderFinance() {
     otherEl.style.display = 'none';
   }
 
+  renderFinanceTotalBalance();
   renderFinanceCategoryBreakdown(monthTxns);
   renderFinancePaymentMethodBreakdown(monthTxns);
   renderFinanceTrend();
   renderFinanceTxnList(monthTxns);
   renderFinanceUnmatched();
   renderFinanceRecurring();
+}
+
+// All-time net across every synced/manual transaction, not just this month --
+// this is a tracked total (see the coverage note below the stats grid), not a
+// real bank balance. Same never-sum-currencies rule as the monthly stats.
+function renderFinanceTotalBalance() {
+  const byCurrency = {};
+  state.financeTransactions.forEach(t => {
+    const cur = t.currency || 'SGD';
+    const bucket = byCurrency[cur] || (byCurrency[cur] = { spent: 0, income: 0, count: 0 });
+    const amt = Number(t.amount) || 0;
+    if (t.direction === 'credit') bucket.income += amt; else bucket.spent += amt;
+    bucket.count++;
+  });
+  const currencies = Object.keys(byCurrency).sort((a, b) => byCurrency[b].count - byCurrency[a].count);
+  const primary = currencies[0] || 'SGD';
+  const p = byCurrency[primary] || { spent: 0, income: 0 };
+  const total = p.income - p.spent;
+
+  const totalEl = document.getElementById('fi-stat-total');
+  totalEl.textContent = `${total.toFixed(2)} ${primary}`;
+  totalEl.style.color = total < 0 ? 'var(--danger)' : 'var(--accent4)';
+
+  const otherEl = document.getElementById('fi-stat-total-other-currencies');
+  const others = currencies.slice(1);
+  if (others.length) {
+    otherEl.textContent = 'Also tracked (not converted): ' + others.map(c => {
+      const b = byCurrency[c];
+      return `${(b.income - b.spent).toFixed(2)} ${c}`;
+    }).join(', ');
+    otherEl.style.display = '';
+  } else {
+    otherEl.style.display = 'none';
+  }
 }
 
 function renderFinanceCategoryBreakdown(monthTxns) {
