@@ -20,6 +20,7 @@ function switchTab(tab, el) {
   if (tab === 'daily')    renderDaily();
   if (tab === 'domains')  { openDomainId = null; renderDomainLibrary(); }
   if (tab === 'finance')  renderFinance();
+  if (tab === 'sleep')    renderSleepAnalytics();
 }
 function renderAll() {
   updateHeader();

@@ -1,6 +1,7 @@
 let currentUser = null;
 let scheduleBlocks = JSON.parse(JSON.stringify(DEFAULT_SCHEDULE_BLOCKS)); // mutable, user-editable copy
 let nightProtocolItems = JSON.parse(JSON.stringify(NIGHT_CHECKS)); // mutable, user-editable copy
+let FINANCE_CUSTOM_CATEGORIES = []; // user-created categories, appended to FINANCE_CATEGORIES
 let state = {
   streaks: {
     wake:     { count:0, history:[], last_checked:null },
@@ -13,7 +14,7 @@ let state = {
   tasks:[], events:[], reviews:[], financeTransactions:[], financeUnmatched:[], financeRecurring:[],
   financeSyncState: null,
   nightChecks: { task:false, prep:false, phone:false },
-  morningCard: null, sleepLog: null,
+  morningCard: null, sleepLog: null, sleepHistory: [],
   phase:1, prevPhase:1,
 };
 

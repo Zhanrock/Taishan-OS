@@ -6,6 +6,63 @@ let financeEditingId = null;
 let financeConfirmDeleteId = null;
 let financeUnmatchedOpen = false;
 
+// ── CATEGORIES (built-ins + user-created) ──
+function financeAllCategories() { return FINANCE_CATEGORIES.concat(FINANCE_CUSTOM_CATEGORIES); }
+
+function financeCategoryOptionsHTML(selected) {
+  return financeAllCategories().map(c => `<option value="${c}" ${c === selected ? 'selected' : ''}>${c}</option>`).join('')
+    + '<option value="__new__">+ New Category…</option>';
+}
+
+function loadFinanceCustomCategoriesFromRow(row) {
+  try {
+    const parsed = JSON.parse(row.last_checked);
+    if (Array.isArray(parsed)) FINANCE_CUSTOM_CATEGORIES = parsed;
+  } catch (e) {}
+}
+
+async function saveFinanceCustomCategories() {
+  setSyncStatus('syncing');
+  await db.from('habits').upsert({
+    user_id: currentUser.id, habit_id: 'financeCustomCategories',
+    count: today(), last_checked: JSON.stringify(FINANCE_CUSTOM_CATEGORIES), history: []
+  }, { onConflict: 'user_id,habit_id' });
+  setSyncStatus('synced');
+}
+
+// Inserts `name` as an <option> into every category <select> currently on the
+// page (skipping ones that already have it), so a category created from any
+// one dropdown shows up in the others without a full re-render.
+function addFinanceCategoryOptionEverywhere(name) {
+  document.querySelectorAll('.fi-cat-select, #fi-filter-cat, #fi-cat-input, #fi-rec-cat-input, select[id^="fi-edit-cat-"]').forEach(sel => {
+    if (sel.querySelector(`option[value="${name}"]`)) return;
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    const newOpt = sel.querySelector('option[value="__new__"]');
+    if (newOpt) sel.insertBefore(opt, newOpt); else sel.appendChild(opt);
+  });
+}
+
+// Shared onchange handler for every category <select> in Finance. `applyFn`
+// receives the resolved category value once one is settled on (a no-op for
+// selects whose value is only read later, e.g. mid-edit forms, so picking
+// "+ New Category" there doesn't trigger a re-render that would drop
+// unsaved edits in sibling fields).
+async function onFinanceCategorySelectChange(selectEl, prevValue, applyFn) {
+  if (selectEl.value !== '__new__') { applyFn(selectEl.value); return; }
+  const raw = prompt('New category name:');
+  const name = (raw || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  if (!name) { selectEl.value = prevValue; return; }
+  if (!financeAllCategories().includes(name)) {
+    FINANCE_CUSTOM_CATEGORIES.push(name);
+    await saveFinanceCustomCategories();
+    notify('✇ Category Added', name, 'var(--accent)');
+  }
+  addFinanceCategoryOptionEverywhere(name);
+  selectEl.value = name;
+  applyFn(name);
+}
+
 function financeMonthKey(dateStr) { return (dateStr || '').slice(0, 7); }
 
 function financeMonthLabel(monthKey) {
@@ -253,7 +310,7 @@ function renderFinanceTrend() {
 function ensureFinanceCategoryFilterOptions() {
   const sel = document.getElementById('fi-filter-cat');
   if (sel.options.length <= 1) {
-    sel.innerHTML = '<option value="all">All categories</option>' + FINANCE_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+    sel.innerHTML = '<option value="all">All categories</option>' + financeCategoryOptionsHTML(null);
   }
   sel.value = financeFilterCategory;
 }
@@ -274,7 +331,7 @@ function financeTxnHTML(t) {
   const color = FINANCE_CATEGORY_COLORS[t.category] || FINANCE_CATEGORY_COLORS.other;
   const sign = t.direction === 'credit' ? '+' : '−';
   const amtColor = t.direction === 'credit' ? 'var(--success)' : 'var(--text)';
-  const catOptions = FINANCE_CATEGORIES.map(c => `<option value="${c}" ${c === t.category ? 'selected' : ''}>${c}</option>`).join('');
+  const catOptions = financeCategoryOptionsHTML(t.category);
   const pendingBadge = t.status === 'pending' ? '<span class="fi-pending-badge">PENDING</span>' : '';
   const estimatedBadge = t.is_estimated ? '<span class="fi-pending-badge fi-estimated-badge" title="Declared under Recurring, not confirmed by a bank alert">ESTIMATED</span>' : '';
   const actions = financeConfirmDeleteId === t.id
@@ -288,14 +345,14 @@ function financeTxnHTML(t) {
         <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${t.bank}${t.account_mask ? ' ••' + t.account_mask : ''}</span>
       </div>
     </div>
-    <select class="form-select fi-cat-select" style="border-color:${color};color:${color}" onchange="updateFinanceCategory('${t.id}', this.value)" onclick="event.stopPropagation()">${catOptions}</select>
+    <select class="form-select fi-cat-select" style="border-color:${color};color:${color}" onchange="onFinanceCategorySelectChange(this, '${t.category}', (v) => updateFinanceCategory('${t.id}', v))" onclick="event.stopPropagation()">${catOptions}</select>
     <div class="fi-txn-amt" style="color:${amtColor}">${sign}${Number(t.amount).toFixed(2)} <span style="font-size:10px;color:var(--muted)">${t.currency}</span></div>
     ${actions}
   </div>`;
 }
 
 function financeTxnEditHTML(t) {
-  const catOptions = FINANCE_CATEGORIES.map(c => `<option value="${c}" ${c === t.category ? 'selected' : ''}>${c}</option>`).join('');
+  const catOptions = financeCategoryOptionsHTML(t.category);
   const merchant = (t.merchant || '').replace(/"/g, '&quot;');
   return `<div class="fi-txn-item fi-txn-item-edit">
     <div class="fi-txn-edit-fields">
@@ -309,7 +366,7 @@ function financeTxnEditHTML(t) {
           <option value="debit" ${t.direction === 'debit' ? 'selected' : ''}>Debit</option>
           <option value="credit" ${t.direction === 'credit' ? 'selected' : ''}>Credit</option>
         </select>
-        <select class="form-select" id="fi-edit-cat-${t.id}">${catOptions}</select>
+        <select class="form-select" id="fi-edit-cat-${t.id}" onchange="onFinanceCategorySelectChange(this, '${t.category}', () => {})">${catOptions}</select>
       </div>
       <div class="form-actions"><button class="btn-cancel" onclick="cancelFinanceEdit()">Cancel</button><button class="btn-save" onclick="saveFinanceEdit('${t.id}')">SAVE</button></div>
     </div>
@@ -468,7 +525,10 @@ function exportFinanceCsv() {
 function toggleFinanceAddForm(skipReset) {
   const f = document.getElementById('fi-add-form');
   const catSelect = document.getElementById('fi-cat-input');
-  if (!catSelect.options.length) catSelect.innerHTML = FINANCE_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+  if (!catSelect.options.length) {
+    catSelect.innerHTML = financeCategoryOptionsHTML(null);
+    catSelect.onchange = () => onFinanceCategorySelectChange(catSelect, catSelect.dataset.prev || 'uncategorized', (v) => { catSelect.dataset.prev = v; });
+  }
   if (skipReset) { f.classList.add('open'); return; }
   f.classList.toggle('open');
   if (f.classList.contains('open')) {
@@ -476,7 +536,7 @@ function toggleFinanceAddForm(skipReset) {
     dpSet('fi-date-input', today());
     document.getElementById('fi-direction-input').value = 'debit';
     document.getElementById('fi-currency-input').value = 'SGD';
-    catSelect.value = 'uncategorized';
+    catSelect.value = catSelect.dataset.prev = 'uncategorized';
     document.getElementById('fi-merchant-input').focus();
   }
 }
@@ -546,7 +606,10 @@ function financeRecurringHTML(r) {
 function toggleFinanceRecurringForm() {
   const f = document.getElementById('fi-recurring-form');
   const catSelect = document.getElementById('fi-rec-cat-input');
-  if (!catSelect.options.length) catSelect.innerHTML = FINANCE_CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('');
+  if (!catSelect.options.length) {
+    catSelect.innerHTML = financeCategoryOptionsHTML(null);
+    catSelect.onchange = () => onFinanceCategorySelectChange(catSelect, catSelect.dataset.prev || 'bills', (v) => { catSelect.dataset.prev = v; });
+  }
   f.classList.toggle('open');
   if (f.classList.contains('open')) {
     document.getElementById('fi-rec-name-input').value = '';
@@ -554,7 +617,7 @@ function toggleFinanceRecurringForm() {
     document.getElementById('fi-rec-day-input').value = '';
     document.getElementById('fi-rec-direction-input').value = 'debit';
     document.getElementById('fi-rec-currency-input').value = 'SGD';
-    catSelect.value = 'bills';
+    catSelect.value = catSelect.dataset.prev = 'bills';
     document.getElementById('fi-rec-name-input').focus();
   }
 }

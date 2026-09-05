@@ -27,6 +27,7 @@
 <link rel="stylesheet" href="css/daily.css">
 <link rel="stylesheet" href="css/domains.css">
 <link rel="stylesheet" href="css/finance.css">
+<link rel="stylesheet" href="css/sleep.css">
 </head>
 <body>
 
@@ -81,6 +82,7 @@
     <button class="tab" onclick="switchTab('schedule', this)"><span class="tab-icon">&#9672;</span>Schedule</button>
     <button class="tab" onclick="switchTab('review', this)"><span class="tab-icon">&#9678;</span>Review</button>
     <button class="tab" onclick="switchTab('finance', this)"><span class="tab-icon">&#9878;</span>Finance</button>
+    <button class="tab" onclick="switchTab('sleep', this)"><span class="tab-icon">&#128564;</span>Sleep</button>
   </div>
 
   <!-- STREAKS -->
@@ -469,9 +471,29 @@
     </div>
     <div class="fi-filter-row">
       <input class="form-input" id="fi-search-input" placeholder="Search merchant..." oninput="setFinanceSearch(this.value)" style="flex:2">
-      <select class="form-select" id="fi-filter-cat" onchange="setFinanceCategoryFilter(this.value)" style="flex:1"><option value="all">All categories</option></select>
+      <select class="form-select" id="fi-filter-cat" onchange="onFinanceCategorySelectChange(this, financeFilterCategory, setFinanceCategoryFilter)" style="flex:1"><option value="all">All categories</option></select>
     </div>
     <div class="fi-txn-list" id="fi-txn-list"><div class="empty-state"><div>&#10022;</div>No transactions yet.</div></div>
+  </div>
+
+  <!-- SLEEP -->
+  <div class="panel" id="panel-sleep">
+    <div class="section-header">
+      <div class="section-title">Sleep <span>bedtime patterns &amp; trends</span></div>
+    </div>
+    <div id="sleep-analytics-empty" class="empty-state"><div>&#128564;</div>No sleep logged yet &mdash; log tonight's sleep from the Schedule tab's Sleep Log box to start building history.</div>
+    <div id="sleep-analytics-body" style="display:none">
+      <div class="stats-grid" id="sleep-stats-grid"></div>
+
+      <div class="small-section-label">&#9673; This Week's Nights</div>
+      <div class="sleep-week-list" id="sleep-week-list"></div>
+
+      <div class="small-section-label" style="margin-top:20px">&#9673; Weekly Bedtime</div>
+      <div class="sleep-chart-bars" id="sleep-week-chart"></div>
+
+      <div class="small-section-label" style="margin-top:20px">&#9673; 8-Week Trend</div>
+      <div class="sleep-trend" id="sleep-trend"></div>
+    </div>
   </div>
 </div>
 
@@ -493,6 +515,7 @@
 <script src="js/review.js"></script>
 <script src="js/finance.js"></script>
 <script src="js/finance-reconcile.js"></script>
+<script src="js/sleep-analytics.js"></script>
 <script src="js/app.js"></script>
 <script>
 function requestNotifPermission() {

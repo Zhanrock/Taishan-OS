@@ -13,14 +13,66 @@ function sleepGraceLevel(timeStr) {
   return 'ok';
 }
 
-function sleepDuration(sleepTimeStr) {
+function sleepDurationMinutes(sleepTimeStr) {
   if (!sleepTimeStr) return null;
   const [sh, sm] = sleepTimeStr.split(':').map(Number);
   const wakeMinutes = 8 * 60, sleepMinutes = sh * 60 + sm;
   const diff = sh >= 18 ? (24 * 60 - sleepMinutes) + wakeMinutes : wakeMinutes - sleepMinutes;
   if (diff <= 0 || diff > 16 * 60) return null;
+  return diff;
+}
+
+function sleepDuration(sleepTimeStr) {
+  const diff = sleepDurationMinutes(sleepTimeStr);
+  if (diff == null) return null;
   const hours = Math.floor(diff / 60), minutes = diff % 60;
   return minutes > 0 ? `~${hours}h ${minutes}m sleep` : `~${hours}h sleep`;
+}
+
+// Monotonic bedtime scale for averaging/charting: 18:00 -> 0, running forward
+// through midnight to 17:59 the next day -> 1439. Lower = earlier bedtime.
+function sleepClockMinutes(timeStr) {
+  if (!timeStr) return null;
+  const [h, m] = timeStr.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return (h * 60 + m - 18 * 60 + 1440) % 1440;
+}
+
+function sleepClockMinutesToTimeLabel(cm) {
+  if (cm == null) return '';
+  const total = (cm + 18 * 60) % 1440;
+  const h = Math.floor(total / 60), m = total % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function fmtMinutesAsHM(mins) {
+  if (mins == null) return '—';
+  const sign = mins < 0 ? '-' : '';
+  const h = Math.floor(Math.abs(mins) / 60), m = Math.round(Math.abs(mins) % 60);
+  return m ? `${sign}${h}h ${m}m` : `${sign}${h}h`;
+}
+
+// ── SLEEP HISTORY (per-night log, unlike sleepLog which only keeps last night) ──
+function upsertSleepHistoryEntry(entry) {
+  const idx = state.sleepHistory.findIndex(e => e.date === entry.date);
+  if (idx >= 0) state.sleepHistory[idx] = entry; else state.sleepHistory.push(entry);
+  state.sleepHistory.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+async function persistSleepHistory() {
+  setSyncStatus('syncing');
+  await db.from('habits').upsert({
+    user_id: currentUser.id, habit_id: 'sleepHistory',
+    count: today(), last_checked: JSON.stringify(state.sleepHistory), history: []
+  }, { onConflict: 'user_id,habit_id' });
+  setSyncStatus('synced');
+}
+
+function loadSleepHistoryFromRow(row) {
+  try {
+    const parsed = JSON.parse(row.last_checked);
+    if (Array.isArray(parsed)) state.sleepHistory = parsed;
+  } catch (e) {}
 }
 
 async function logSleep() {

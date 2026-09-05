@@ -341,7 +341,7 @@ function renderProgramBlockWrap(d, b, i, del) {
   if (domEditTarget && domEditTarget.blockIdx === i && domEditTarget.kind === 'program') {
     return `<div class="dom-block-wrap">
       ${del}
-      <textarea class="form-input" id="dom-program-edit-json-${i}" style="min-height:160px;font-family:var(--mono);font-size:11px">${esc(JSON.stringify(b, null, 2))}</textarea>
+      <textarea class="form-input" id="dom-program-edit-json-${i}" spellcheck="false" style="width:100%;min-height:60vh;font-family:var(--mono);font-size:13px;line-height:1.6;white-space:pre;resize:vertical">${esc(JSON.stringify(b, null, 2))}</textarea>
       <div class="form-actions" style="margin-top:8px">
         <button class="btn-cancel" onclick="cancelDomainEdit()">Cancel</button>
         <button class="btn-save" onclick="submitEditProgramBlock('${d.id}',${i})">SAVE</button>
@@ -413,7 +413,7 @@ function addBlockFieldsHTML(type) {
   if (type === 'note') return `<input class="form-input" id="dom-nb-label" placeholder="Label (optional)"><textarea class="form-input" id="dom-nb-text" placeholder="Note text..." style="min-height:60px"></textarea>`;
   if (type === 'checklist') return `<input class="form-input" id="dom-nb-label" placeholder="Checklist name (e.g. Modules to finish)">`;
   if (type === 'progress_log') return `<input class="form-input" id="dom-nb-label" placeholder="Log name (e.g. Workout Log)">`;
-  if (type === 'program') return `<textarea class="form-input" id="dom-nb-json" placeholder='Paste program JSON — { "label", "meta", "phases":[{"name","days":[{"label","items":[{"name","detail"}]}]}] }' style="min-height:100px;font-family:var(--mono);font-size:11px"></textarea>`;
+  if (type === 'program') return `<textarea class="form-input" id="dom-nb-json" spellcheck="false" placeholder='Paste program JSON — { "label", "meta", "phases":[{"name","days":[{"label","items":[{"name","detail"}]}]}] }' style="width:100%;min-height:50vh;font-family:var(--mono);font-size:13px;line-height:1.6;white-space:pre;resize:vertical"></textarea>`;
   return '';
 }
 

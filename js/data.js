@@ -17,6 +17,8 @@ async function loadAllData() {
         }
         if (row.habit_id === 'morningCard') { try { state.morningCard = JSON.parse(row.last_checked); } catch(e) {} }
         if (row.habit_id === 'scheduleBlocks') { loadScheduleBlocksFromRow(row); }
+        if (row.habit_id === 'financeCustomCategories') { loadFinanceCustomCategoriesFromRow(row); }
+        if (row.habit_id === 'sleepHistory') { loadSleepHistoryFromRow(row); }
         if (row.habit_id === 'sleepLog') {
           try {
             const sl = JSON.parse(row.last_checked);

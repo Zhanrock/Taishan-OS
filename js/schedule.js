@@ -546,14 +546,17 @@ async function logSleep() {
   if (!timeVal) { notify('\u26A0 Sleep Log', 'Please enter a time', 'var(--accent2)'); return; }
   const grace = sleepGraceLevel(timeVal), logData = { date:today(), time:timeVal, graceLevel:grace };
   state.sleepLog = logData;
+  upsertSleepHistoryEntry({ date:today(), time:timeVal, graceLevel:grace, durationMinutes:sleepDurationMinutes(timeVal) });
   setSyncStatus('syncing');
   await db.from('habits').upsert({ user_id:currentUser.id, habit_id:'sleepLog', count:today(), last_checked:JSON.stringify(logData), history:[] }, { onConflict:'user_id,habit_id' });
   setSyncStatus('synced');
+  await persistSleepHistory();
   const statusEl=document.getElementById('sleepLogStatus'), dur=sleepDuration(timeVal);
   if (grace==='ok')    { statusEl.className='sleep-log-status ok';    statusEl.textContent='\u2713 Logged '+timeVal+(dur?' \u00B7 '+dur:'')+' \u2014 clean streak tomorrow.'; notify('\uD83D\uDCA4 Sleep logged','Before midnight \u2014 full streak preserved.','var(--success)'); }
   else if (grace==='late') { statusEl.className='sleep-log-status late'; statusEl.textContent='\uD83C\uDF19 LATE NIGHT \u2014 '+timeVal+(dur?' \u00B7 '+dur:'')+'. Streak counts, badge shown.'; notify('\uD83D\uDCA4 LATE NIGHT logged',timeVal+' \u2014 streak preserved, yellow badge.','var(--accent4)'); }
   else { statusEl.className='sleep-log-status grace'; statusEl.textContent='\u26A0 GRACE DAY \u2014 '+timeVal+(dur?' \u00B7 '+dur:'')+'. Streak preserved, badge shown.'; notify('\uD83D\uDCA4 GRACE DAY logged',timeVal+' \u2014 streak preserved, orange badge.','#ff9f6a'); }
   renderStreaks();
+  if (document.getElementById('panel-sleep')) renderSleepAnalytics();
 }
 function renderSleepLogStatus() {
   const statusEl=document.getElementById('sleepLogStatus'), inputEl=document.getElementById('sleepTimeInput');
