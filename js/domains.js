@@ -19,11 +19,15 @@
 
 let openDomainId = null;
 let domainLibAddOpen = false;
+// Tracks which single entry/item/block currently shows an inline edit form:
+// { blockIdx, kind: 'progress'|'checklist'|'note'|'link'|'program', idx? }
+let domEditTarget = null;
 
 // ── NAVIGATION ──
 
 function goToDomainsTab(domainId) {
   openDomainId = domainId || null;
+  domEditTarget = null;
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   const panel = document.getElementById('panel-domains');
@@ -35,6 +39,12 @@ function goToDomainsTab(domainId) {
 
 function closeDomainDetail() {
   openDomainId = null;
+  domEditTarget = null;
+  renderDomainLibrary();
+}
+
+function cancelDomainEdit() {
+  domEditTarget = null;
   renderDomainLibrary();
 }
 
@@ -219,29 +229,54 @@ function renderDomainDetailHTML(id) {
 
 function renderDomainBlock(d, b, i) {
   const del = `<button class="dom-block-del" onclick="deleteDomainBlock('${d.id}',${i})" title="Remove">✕</button>`;
-  if (b.type === 'link') {
-    return `<div class="dom-block dom-block-link">${del}<a href="${escAttr(b.url)}" target="_blank" rel="noopener">🔗 ${esc(b.label || b.url)} ↗</a></div>`;
-  }
-  if (b.type === 'note') {
-    return `<div class="dom-block dom-block-note">${del}${b.label ? `<div class="dom-block-label">${esc(b.label)}</div>` : ''}<div class="dom-block-text">${esc(b.text)}</div></div>`;
-  }
+  if (b.type === 'link') return renderLinkBlock(d, b, i, del);
+  if (b.type === 'note') return renderNoteBlock(d, b, i, del);
   if (b.type === 'checklist') return renderChecklistBlock(d, b, i, del);
   if (b.type === 'progress_log') return renderProgressLogBlock(d, b, i, del);
-  if (b.type === 'program') return `<div class="dom-block-wrap">${del}${renderProgramBlock(b)}</div>`;
+  if (b.type === 'program') return renderProgramBlockWrap(d, b, i, del);
   return '';
 }
 
+function renderLinkBlock(d, b, i, del) {
+  const edit = `<button class="dom-block-edit" onclick="openEditLinkBlock('${d.id}',${i})" title="Edit">✎</button>`;
+  if (domEditTarget && domEditTarget.blockIdx === i && domEditTarget.kind === 'link') {
+    return `<div class="dom-block dom-block-link">
+      ${del}
+      <input class="form-input" id="dom-link-edit-label-${i}" placeholder="Label" value="${escAttr(b.label || '')}" style="margin-bottom:8px">
+      <input class="form-input" id="dom-link-edit-url-${i}" placeholder="https://..." value="${escAttr(b.url || '')}">
+      <div class="form-actions" style="margin-top:8px">
+        <button class="btn-cancel" onclick="cancelDomainEdit()">Cancel</button>
+        <button class="btn-save" onclick="submitEditLinkBlock('${d.id}',${i})">SAVE</button>
+      </div>
+    </div>`;
+  }
+  return `<div class="dom-block dom-block-link">${del}${edit}<a href="${escAttr(b.url)}" target="_blank" rel="noopener">🔗 ${esc(b.label || b.url)} ↗</a></div>`;
+}
+
+function renderNoteBlock(d, b, i, del) {
+  const edit = `<button class="dom-block-edit" onclick="openEditNoteBlock('${d.id}',${i})" title="Edit">✎</button>`;
+  if (domEditTarget && domEditTarget.blockIdx === i && domEditTarget.kind === 'note') {
+    return `<div class="dom-block dom-block-note">
+      ${del}
+      <input class="form-input" id="dom-note-edit-label-${i}" placeholder="Label (optional)" value="${escAttr(b.label || '')}" style="margin-bottom:8px">
+      <textarea class="form-input" id="dom-note-edit-text-${i}" style="min-height:60px">${esc(b.text || '')}</textarea>
+      <div class="form-actions" style="margin-top:8px">
+        <button class="btn-cancel" onclick="cancelDomainEdit()">Cancel</button>
+        <button class="btn-save" onclick="submitEditNoteBlock('${d.id}',${i})">SAVE</button>
+      </div>
+    </div>`;
+  }
+  return `<div class="dom-block dom-block-note">${del}${edit}${b.label ? `<div class="dom-block-label">${esc(b.label)}</div>` : ''}<div class="dom-block-text">${esc(b.text)}</div></div>`;
+}
+
 function renderChecklistBlock(d, b, i, del) {
-  const items = b.items || [];
+  const items = (b.items || []).map((it, idx) => Object.assign({}, it, { _idx: idx }));
   const doneCt = items.filter(it => it.done).length;
   return `<div class="dom-block dom-block-checklist">
     ${del}
     <div class="dom-block-label">${esc(b.label || 'Checklist')} <span class="dom-block-sub">${doneCt}/${items.length}</span></div>
     <div class="dom-checklist-items">
-      ${items.map((it, ii) => `
-        <div class="dom-check-item ${it.done ? 'done' : ''}" onclick="toggleChecklistItem('${d.id}',${i},${ii})">
-          <span class="dom-check-box">${it.done ? '✓' : ''}</span><span class="dom-check-text">${esc(it.text)}</span>
-        </div>`).join('')}
+      ${items.map(it => renderChecklistItemRow(d, i, it)).join('')}
     </div>
     <div class="dom-mini-add">
       <input class="form-input" id="dom-cl-input-${i}" placeholder="Add item...">
@@ -250,8 +285,25 @@ function renderChecklistBlock(d, b, i, del) {
   </div>`;
 }
 
+function renderChecklistItemRow(d, blockIdx, it) {
+  if (domEditTarget && domEditTarget.blockIdx === blockIdx && domEditTarget.kind === 'checklist' && domEditTarget.idx === it._idx) {
+    return `<div class="dom-check-item-edit">
+      <input class="form-input" id="dom-cl-edit-${blockIdx}-${it._idx}" value="${escAttr(it.text)}" style="flex:1;font-size:12px">
+      <button class="btn-save" onclick="submitEditChecklistItem('${d.id}',${blockIdx},${it._idx})">SAVE</button>
+      <button class="btn-cancel" onclick="cancelDomainEdit()">Cancel</button>
+    </div>`;
+  }
+  return `<div class="dom-check-item ${it.done ? 'done' : ''}">
+    <span class="dom-check-box" onclick="toggleChecklistItem('${d.id}',${blockIdx},${it._idx})">${it.done ? '✓' : ''}</span>
+    <span class="dom-check-text" onclick="toggleChecklistItem('${d.id}',${blockIdx},${it._idx})">${esc(it.text)}</span>
+    <button class="dom-entry-edit" onclick="openEditChecklistItem('${d.id}',${blockIdx},${it._idx})" title="Edit">✎</button>
+    <button class="dom-entry-del" onclick="deleteChecklistItem('${d.id}',${blockIdx},${it._idx})" title="Delete">✕</button>
+  </div>`;
+}
+
 function renderProgressLogBlock(d, b, i, del) {
-  const entries = (b.entries || []).slice().sort((a, c) => (c.date || '').localeCompare(a.date || ''));
+  const withIdx = (b.entries || []).map((e, idx) => Object.assign({}, e, { _idx: idx }));
+  const entries = withIdx.slice().sort((a, c) => (c.date || '').localeCompare(a.date || ''));
   return `<div class="dom-block dom-block-progress">
     ${del}
     <div class="dom-block-label">${esc(b.label || 'Progress Log')}</div>
@@ -262,10 +314,42 @@ function renderProgressLogBlock(d, b, i, del) {
     </div>
     <div class="dom-progress-entries">
       ${entries.length
-        ? entries.map(e => `<div class="dom-progress-entry"><span class="dom-progress-date">${esc(e.date)}</span><span class="dom-progress-note">${esc(e.note)}</span></div>`).join('')
+        ? entries.map(e => renderProgressEntryRow(d, i, e)).join('')
         : `<div class="dom-progress-empty">No entries yet.</div>`}
     </div>
   </div>`;
+}
+
+function renderProgressEntryRow(d, blockIdx, e) {
+  if (domEditTarget && domEditTarget.blockIdx === blockIdx && domEditTarget.kind === 'progress' && domEditTarget.idx === e._idx) {
+    return `<div class="dom-progress-entry-edit">
+      <input class="form-input" id="dom-pl-edit-date-${blockIdx}-${e._idx}" value="${escAttr(e.date)}" style="flex:0 0 110px;font-size:11px">
+      <input class="form-input" id="dom-pl-edit-note-${blockIdx}-${e._idx}" value="${escAttr(e.note)}" style="flex:1;font-size:12px">
+      <button class="btn-save" onclick="submitEditProgressEntry('${d.id}',${blockIdx},${e._idx})">SAVE</button>
+      <button class="btn-cancel" onclick="cancelDomainEdit()">Cancel</button>
+    </div>`;
+  }
+  return `<div class="dom-progress-entry">
+    <span class="dom-progress-date">${esc(e.date)}</span>
+    <span class="dom-progress-note">${esc(e.note)}</span>
+    <button class="dom-entry-edit" onclick="openEditProgressEntry('${d.id}',${blockIdx},${e._idx})" title="Edit">✎</button>
+    <button class="dom-entry-del" onclick="deleteProgressEntry('${d.id}',${blockIdx},${e._idx})" title="Delete">✕</button>
+  </div>`;
+}
+
+function renderProgramBlockWrap(d, b, i, del) {
+  if (domEditTarget && domEditTarget.blockIdx === i && domEditTarget.kind === 'program') {
+    return `<div class="dom-block-wrap">
+      ${del}
+      <textarea class="form-input" id="dom-program-edit-json-${i}" style="min-height:160px;font-family:var(--mono);font-size:11px">${esc(JSON.stringify(b, null, 2))}</textarea>
+      <div class="form-actions" style="margin-top:8px">
+        <button class="btn-cancel" onclick="cancelDomainEdit()">Cancel</button>
+        <button class="btn-save" onclick="submitEditProgramBlock('${d.id}',${i})">SAVE</button>
+      </div>
+    </div>`;
+  }
+  const edit = `<button class="dom-block-edit" onclick="openEditProgramBlock('${d.id}',${i})" title="Edit JSON">✎</button>`;
+  return `<div class="dom-block-wrap">${del}${edit}${renderProgramBlock(b)}</div>`;
 }
 
 function renderProgramBlock(block) {
@@ -374,6 +458,7 @@ async function deleteDomainBlock(domainId, idx) {
   const d = LIFE_DOMAINS.find(x => x.id === domainId);
   if (!d) return;
   const content = (d.detailContent || []).filter((_, i) => i !== idx);
+  domEditTarget = null;
   const ok = await saveDomainDetail(d, content);
   if (!ok) return;
   renderDomainLibrary();
@@ -422,6 +507,147 @@ async function addProgressEntry(domainId, blockIdx) {
   if (!ok) return;
   renderDomainLibrary();
   notify('◈ Logged', d.title, 'var(--accent)');
+}
+
+// ── EDIT / DELETE INDIVIDUAL ENTRIES ──
+
+function openEditProgressEntry(domainId, blockIdx, entryIdx) {
+  domEditTarget = { blockIdx, kind: 'progress', idx: entryIdx };
+  renderDomainLibrary();
+}
+
+async function submitEditProgressEntry(domainId, blockIdx, entryIdx) {
+  const dateEl = document.getElementById(`dom-pl-edit-date-${blockIdx}-${entryIdx}`);
+  const noteEl = document.getElementById(`dom-pl-edit-note-${blockIdx}-${entryIdx}`);
+  const note = noteEl ? noteEl.value.trim() : '';
+  if (!note) { notify('⚠ Error', 'Entry text required', 'var(--accent2)'); return; }
+  const d = LIFE_DOMAINS.find(x => x.id === domainId);
+  if (!d) return;
+  const content = [...(d.detailContent || [])];
+  const block = { ...content[blockIdx] };
+  block.entries = (block.entries || []).map((e, idx) => idx === entryIdx
+    ? { date: (dateEl && dateEl.value.trim()) || e.date, note }
+    : e);
+  content[blockIdx] = block;
+  const ok = await saveDomainDetail(d, content);
+  if (!ok) return;
+  domEditTarget = null;
+  renderDomainLibrary();
+  notify('✓ Entry updated', d.title, 'var(--accent)');
+}
+
+async function deleteProgressEntry(domainId, blockIdx, entryIdx) {
+  const d = LIFE_DOMAINS.find(x => x.id === domainId);
+  if (!d) return;
+  const content = [...(d.detailContent || [])];
+  const block = { ...content[blockIdx] };
+  block.entries = (block.entries || []).filter((_, idx) => idx !== entryIdx);
+  content[blockIdx] = block;
+  if (domEditTarget && domEditTarget.blockIdx === blockIdx && domEditTarget.kind === 'progress' && domEditTarget.idx === entryIdx) domEditTarget = null;
+  const ok = await saveDomainDetail(d, content);
+  if (!ok) return;
+  renderDomainLibrary();
+  notify('🗑 Entry removed', '', 'var(--muted)');
+}
+
+function openEditChecklistItem(domainId, blockIdx, itemIdx) {
+  domEditTarget = { blockIdx, kind: 'checklist', idx: itemIdx };
+  renderDomainLibrary();
+}
+
+async function submitEditChecklistItem(domainId, blockIdx, itemIdx) {
+  const input = document.getElementById(`dom-cl-edit-${blockIdx}-${itemIdx}`);
+  const text = input ? input.value.trim() : '';
+  if (!text) { notify('⚠ Error', 'Item text required', 'var(--accent2)'); return; }
+  const d = LIFE_DOMAINS.find(x => x.id === domainId);
+  if (!d) return;
+  const content = [...(d.detailContent || [])];
+  const block = { ...content[blockIdx] };
+  block.items = (block.items || []).map((it, idx) => idx === itemIdx ? { ...it, text } : it);
+  content[blockIdx] = block;
+  const ok = await saveDomainDetail(d, content);
+  if (!ok) return;
+  domEditTarget = null;
+  renderDomainLibrary();
+  notify('✓ Item updated', d.title, 'var(--accent)');
+}
+
+async function deleteChecklistItem(domainId, blockIdx, itemIdx) {
+  const d = LIFE_DOMAINS.find(x => x.id === domainId);
+  if (!d) return;
+  const content = [...(d.detailContent || [])];
+  const block = { ...content[blockIdx] };
+  block.items = (block.items || []).filter((_, idx) => idx !== itemIdx);
+  content[blockIdx] = block;
+  if (domEditTarget && domEditTarget.blockIdx === blockIdx && domEditTarget.kind === 'checklist' && domEditTarget.idx === itemIdx) domEditTarget = null;
+  const ok = await saveDomainDetail(d, content);
+  if (!ok) return;
+  renderDomainLibrary();
+  notify('🗑 Item removed', '', 'var(--muted)');
+}
+
+function openEditNoteBlock(domainId, blockIdx) {
+  domEditTarget = { blockIdx, kind: 'note' };
+  renderDomainLibrary();
+}
+
+async function submitEditNoteBlock(domainId, blockIdx) {
+  const labelEl = document.getElementById(`dom-note-edit-label-${blockIdx}`);
+  const textEl = document.getElementById(`dom-note-edit-text-${blockIdx}`);
+  const text = textEl ? textEl.value.trim() : '';
+  if (!text) { notify('⚠ Error', 'Note text required', 'var(--accent2)'); return; }
+  const d = LIFE_DOMAINS.find(x => x.id === domainId);
+  if (!d) return;
+  const content = [...(d.detailContent || [])];
+  content[blockIdx] = { ...content[blockIdx], label: labelEl ? labelEl.value.trim() : '', text };
+  const ok = await saveDomainDetail(d, content);
+  if (!ok) return;
+  domEditTarget = null;
+  renderDomainLibrary();
+  notify('✓ Note updated', d.title, 'var(--accent)');
+}
+
+function openEditLinkBlock(domainId, blockIdx) {
+  domEditTarget = { blockIdx, kind: 'link' };
+  renderDomainLibrary();
+}
+
+async function submitEditLinkBlock(domainId, blockIdx) {
+  const labelEl = document.getElementById(`dom-link-edit-label-${blockIdx}`);
+  const urlEl = document.getElementById(`dom-link-edit-url-${blockIdx}`);
+  const url = urlEl ? urlEl.value.trim() : '';
+  if (!url) { notify('⚠ Error', 'URL required', 'var(--accent2)'); return; }
+  const d = LIFE_DOMAINS.find(x => x.id === domainId);
+  if (!d) return;
+  const content = [...(d.detailContent || [])];
+  content[blockIdx] = { ...content[blockIdx], label: (labelEl && labelEl.value.trim()) || url, url };
+  const ok = await saveDomainDetail(d, content);
+  if (!ok) return;
+  domEditTarget = null;
+  renderDomainLibrary();
+  notify('✓ Link updated', d.title, 'var(--accent)');
+}
+
+function openEditProgramBlock(domainId, blockIdx) {
+  domEditTarget = { blockIdx, kind: 'program' };
+  renderDomainLibrary();
+}
+
+async function submitEditProgramBlock(domainId, blockIdx) {
+  const el = document.getElementById(`dom-program-edit-json-${blockIdx}`);
+  const raw = el ? el.value.trim() : '';
+  let block;
+  try { block = JSON.parse(raw); block.type = 'program'; }
+  catch (e) { notify('⚠ Error', 'Invalid JSON', 'var(--danger)'); return; }
+  const d = LIFE_DOMAINS.find(x => x.id === domainId);
+  if (!d) return;
+  const content = [...(d.detailContent || [])];
+  content[blockIdx] = block;
+  const ok = await saveDomainDetail(d, content);
+  if (!ok) return;
+  domEditTarget = null;
+  renderDomainLibrary();
+  notify('✓ Program updated', d.title, 'var(--accent)');
 }
 
 // ── PERSISTENCE ──
