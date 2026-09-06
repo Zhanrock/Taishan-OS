@@ -8,12 +8,16 @@ in order from `index.html`; there are no modules or imports.
 
 ## Invariants
 
-- **RLS is the security boundary.** The anon key is public on purpose. Every
-  table must have `enable row level security` and an `auth.uid() = user_id`
-  policy. A new table without a policy is a real vulnerability, not a todo.
-- **No personal data in this repo.** No employer, collaborator, module,
-  supervisor, or project names. `DEFAULT_DOMAINS` and `DEFAULT_TASKS` are
-  generic seed data and stay that way. Real content lives in Supabase rows.
+- **RLS is the security boundary.** The anon key is readable by anyone and
+  that's fine. Every table must have `enable row level security` and an
+  `auth.uid() = user_id` policy. A new table without a policy is a real
+  vulnerability, not a todo.
+- **No personal data in shipped source.** Anything in `js/` reaches the
+  browser, and Pages serves the site publicly even though this repo is
+  private — repo visibility is not the lever. No employer, collaborator,
+  module, supervisor, or project names. `DEFAULT_DOMAINS` and
+  `DEFAULT_TASKS` are generic seed data and stay that way. Real content
+  lives in Supabase rows.
 - **Schema changes update the README.** The SQL block in README.md is what
   someone forking this runs. If a table or column is added, changed, or newly
   queried in `js/data.js`, update the SQL block in the same commit.
@@ -37,5 +41,3 @@ Update this file in the same commit as the change that makes it wrong.
 - Add it here only if it applies to every session. One-off procedures
   belong in a skill; anything Claude can read off the codebase belongs
   nowhere.
-- This file is public. No personal, employer, collaborator, module, or
-  supervisor names, and no real domain content — same rule as the source.
