@@ -25,3 +25,17 @@ in order from `index.html`; there are no modules or imports.
 `js/data.js` queries `finance_unmatched` and `finance_recurring`, and selects
 `last_run_at` from `finance_sync_state`. None are in the README SQL. The
 header says v2.9.5 but history goes to v2.9.7.
+
+## Maintaining this file
+
+Update this file in the same commit as the change that makes it wrong.
+
+- Delete a Known drift item when it's fixed. Delete the whole section
+  when it's empty. Do not leave fixed items as history.
+- Add an invariant when a mistake here gets made twice, or when a code
+  review catches something a session should have known.
+- Add it here only if it applies to every session. One-off procedures
+  belong in a skill; anything Claude can read off the codebase belongs
+  nowhere.
+- This file is public. No personal, employer, collaborator, module, or
+  supervisor names, and no real domain content — same rule as the source.
