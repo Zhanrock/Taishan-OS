@@ -2,7 +2,7 @@
 
 > *Your personal operating system. Cloud-synced. Algorithm-driven. Built for a life with too much going on.*
 
-**v2.9.5** · [Live →](https://zhanrock.github.io/Taishan-OS/)
+**v2.9.8** · [Live →](https://zhanrock.github.io/Taishan-OS/)
 
 ---
 
@@ -75,17 +75,21 @@ Bank transaction/notification emails get pulled from Gmail on a schedule (`finan
 All tables use Supabase Row Level Security — users can only access their own data.
 
 ```sql
--- Habit streaks + misc state
+-- Habit streaks + misc per-user key/value state. `count` is text, not an
+-- integer -- non-streak rows (scheduleBlocks, sleepLog, sleepHistory,
+-- nightProtocolItems, morningCard, financeCustomCategories) stash a JSON
+-- blob in last_checked and a date string in count instead of a real streak.
 habits (user_id, habit_id, count, last_checked, history)
 
 -- Assignment / project tasks
-tasks (user_id, name, category, due, priority, note, done, createdOn)
+tasks (user_id, name, category, due, priority, note, done, created_on)
 
--- Calendar events (one-off + recurring)
-events (user_id, title, type, date, time, end_time, note, priority, cancelled)
+-- Calendar events (one-off + recurring). recur_id links occurrences of the
+-- same recurring event; there is no cancelled column.
+events (user_id, title, date, time, end_time, type, note, priority, recur_id)
 
 -- Weekly review entries
-reviews (user_id, week, r1, r2, r3, r4, created_at)
+reviews (user_id, date, r1, r2, r3, r4, created_at)
 
 -- Daily life tasks (generated + manual)
 daily_tasks (user_id, title, cat, pri, time, done, date, note, domain_id, created_at)
@@ -101,10 +105,25 @@ user_domain_progress (user_id, domain_id, last_done)
 
 -- Bank transactions, synced from Gmail by finance-sync/ (see that folder's README)
 finance_transactions (user_id, external_id, bank, account_mask, txn_date, amount,
-                       currency, direction, merchant, category, raw_subject)
+                       currency, direction, merchant, category, raw_subject,
+                       status, payment_method, txn_ref, is_estimated)
 
--- Cursor for the finance-sync job — last time Gmail was successfully polled
-finance_sync_state (user_id, last_synced_at)
+-- Bank notification emails finance-sync couldn't parse, surfaced in the
+-- Finance tab's Unmatched Inbox instead of silently dropped
+finance_unmatched (user_id, gmail_id, sender, subject, received_at, snippet,
+                    reason, resolved, created_at)
+
+-- User-declared recurring bills/income that never trigger a bank email alert;
+-- finance-sync materializes one finance_transactions row per due date, marked
+-- is_estimated
+finance_recurring (user_id, name, amount, currency, direction, category,
+                    day_of_month, active, started_on, created_at)
+
+-- Cursor for the finance-sync job. last_synced_at is the Gmail query
+-- watermark (only advances when new mail is found); last_run_at is set
+-- unconditionally at the end of every live run, so the UI can show real
+-- "last synced" freshness even on a run that found nothing new.
+finance_sync_state (user_id, last_synced_at, last_run_at)
 ```
 
 ---
@@ -165,33 +184,34 @@ taishan-os/
 
 create table habits (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade,
-  habit_id text not null, count int default 0,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  habit_id text not null, count text default '0',
   last_checked text, history text[] default '{}',
   unique(user_id, habit_id)
 );
 
 create table tasks (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade,
-  name text, category text, due text, priority text,
-  note text, done boolean default false, createdOn text,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null, category text default 'personal', due text,
+  priority text default 'med', note text default '',
+  done boolean default false, created_on text,
   created_at timestamptz default now()
 );
 
 create table events (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade,
-  title text, type text, date text, time text,
-  end_time text, note text, priority text default 'normal',
-  cancelled boolean default false,
-  created_at timestamptz default now()
+  user_id uuid not null references auth.users(id) on delete cascade,
+  title text not null, date text not null, time text,
+  end_time text, type text default 'meeting', note text,
+  created_at timestamptz default now(),
+  priority text default 'normal', recur_id text
 );
 
 create table reviews (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade,
-  week text, r1 text, r2 text, r3 text, r4 text,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  date text, r1 text, r2 text, r3 text, r4 text,
   created_at timestamptz default now()
 );
 
@@ -200,8 +220,8 @@ create table daily_tasks (
   user_id uuid references auth.users(id) on delete cascade,
   title text not null, cat text default 'other',
   pri text default 'medium', time text, done boolean default false,
-  date text not null, note text, domain_id text,
-  created_at timestamptz default now()
+  date text not null, created_at timestamptz default now(),
+  domain_id text, note text
 );
 
 create table user_domains (
@@ -213,8 +233,8 @@ create table user_domains (
   freq_days int default 2, base_priority int default 5,
   urgency_deadline_days int default 7,
   tags text[] default '{}', note text default '',
-  detail_content jsonb default '[]'::jsonb,
   created_at timestamptz default now(),
+  detail_content jsonb default '[]'::jsonb,
   unique(user_id, domain_id)
 );
 
@@ -235,12 +255,53 @@ create table finance_transactions (
   merchant text, category text default 'uncategorized',
   raw_subject text,
   created_at timestamptz default now(),
+  status text not null default 'posted',
+  payment_method text, txn_ref text,
+  is_estimated boolean not null default false,
   unique(user_id, external_id)
+);
+
+-- Non-unique: two independent transactions coincidentally sharing a ref is
+-- not something to hard-fail on. Speeds up sync.py's dedup/soft-merge lookup
+-- for a purchase that emails both an authorisation and a settlement.
+create index finance_transactions_txn_ref_idx
+  on finance_transactions (user_id, txn_ref)
+  where txn_ref is not null;
+
+-- Bank emails finance-sync couldn't parse (surfaced in the Finance tab's
+-- Unmatched Inbox instead of vanishing into a GitHub Actions log)
+create table finance_unmatched (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id),
+  gmail_id text not null,
+  sender text, subject text, received_at timestamptz,
+  snippet text, reason text,
+  resolved boolean not null default false,
+  created_at timestamptz not null default now(),
+  unique(user_id, gmail_id)
+);
+
+-- User-declared recurring bills/income that never trigger a bank alert (see
+-- finance-sync/'s "DBS alerting rules"), so they can't be captured by email
+-- parsing. day_of_month is capped at 1-28 to avoid month-end clamping logic
+-- for what is already an estimate, not a real transaction date.
+create table finance_recurring (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id),
+  name text not null, amount numeric not null,
+  currency text not null default 'SGD',
+  direction text not null default 'debit',
+  category text not null default 'bills',
+  day_of_month smallint not null check (day_of_month between 1 and 28),
+  active boolean not null default true,
+  started_on date not null default current_date,
+  created_at timestamptz not null default now()
 );
 
 create table finance_sync_state (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  last_synced_at timestamptz not null default now()
+  last_synced_at timestamptz not null default now(),
+  last_run_at timestamptz default now()
 );
 
 -- Enable RLS on all tables
@@ -252,6 +313,8 @@ alter table daily_tasks enable row level security;
 alter table user_domains enable row level security;
 alter table user_domain_progress enable row level security;
 alter table finance_transactions enable row level security;
+alter table finance_unmatched enable row level security;
+alter table finance_recurring enable row level security;
 alter table finance_sync_state enable row level security;
 
 -- RLS policies (repeat pattern for each table)
@@ -263,6 +326,8 @@ create policy "Users own their data" on daily_tasks for all using (auth.uid() = 
 create policy "Users own their data" on user_domains for all using (auth.uid() = user_id);
 create policy "Users own their data" on user_domain_progress for all using (auth.uid() = user_id);
 create policy "Users own their data" on finance_transactions for all using (auth.uid() = user_id);
+create policy "Users own their data" on finance_unmatched for all using (auth.uid() = user_id);
+create policy "Users own their data" on finance_recurring for all using (auth.uid() = user_id);
 create policy "Users own their data" on finance_sync_state for all using (auth.uid() = user_id);
 ```
 
@@ -272,6 +337,7 @@ create policy "Users own their data" on finance_sync_state for all using (auth.u
 
 | Version | What changed |
 |---|---|
+| v2.9.8 | README's Database Tables section and self-hosting SQL corrected to match the live Supabase schema (verified via direct inspection, not assumption): added the missing finance_unmatched and finance_recurring tables, finance_sync_state.last_run_at, and finance_transactions' status/payment_method/txn_ref/is_estimated columns + txn_ref index; fixed habits.count (text, not int -- non-streak rows store a JSON blob there), reviews' actual column (date, not week), events (no cancelled column; added the undocumented recur_id), and tasks.created_on naming. Header version corrected to match this table. All 11 live tables confirmed to have RLS enabled with an owner-scoped policy -- no vulnerability found. |
 | v2.9.7 | finance-sync no longer re-upserts a transaction whose email was re-fetched inside the sync overlap window -- previously this silently reverted any manual edit (category, merchant, amount, etc.) made in the Finance tab back to the freshly parsed values. Also added common Singapore F&B/retail/supermarket/cinema chains to auto-categorization. |
 | v2.9.6 | DBS card transaction parser (covers physical/contactless/Google Wallet card alerts); finance tab shows when the transaction list was last synced and when the next scheduled sync runs; finance-sync now auto-resolves a stale Unmatched Inbox entry once a later fix lets that same email parse successfully. |
 | v2.9.5 | Finance tab added: finance-sync/ (GitHub Actions cron) parses bank notification emails from Gmail per-bank and syncs finance_transactions to Supabase; UI shows monthly spend/income/net, category breakdown, transaction list with inline category correction, and manual entry. |
