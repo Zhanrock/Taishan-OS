@@ -2,7 +2,7 @@
 
 > *Your personal operating system. Cloud-synced. Algorithm-driven. Built for a life with too much going on.*
 
-**v2.9.8** · [Live →](https://zhanrock.github.io/Taishan-OS/)
+**v2.9.9** · [Live →](https://zhanrock.github.io/Taishan-OS/)
 
 ---
 
@@ -235,6 +235,7 @@ create table user_domains (
   tags text[] default '{}', note text default '',
   created_at timestamptz default now(),
   detail_content jsonb default '[]'::jsonb,
+  is_archived boolean not null default false,
   unique(user_id, domain_id)
 );
 
@@ -337,6 +338,7 @@ create policy "Users own their data" on finance_sync_state for all using (auth.u
 
 | Version | What changed |
 |---|---|
+| v2.9.9 | Domains can now be archived/retired instead of only deleted (`user_domains.is_archived`) — excluded from day generation and the default domain list, but stays readable with its logs intact; restore or permanently delete from the archived view. Logging a progress-log entry for today now also records `last_done` for that domain, so the overdue-penalty scoring reflects the log people actually keep instead of only the separate generated daily-task checkbox. |
 | v2.9.8 | README's Database Tables section and self-hosting SQL corrected to match the live Supabase schema (verified via direct inspection, not assumption): added the missing finance_unmatched and finance_recurring tables, finance_sync_state.last_run_at, and finance_transactions' status/payment_method/txn_ref/is_estimated columns + txn_ref index; fixed habits.count (text, not int -- non-streak rows store a JSON blob there), reviews' actual column (date, not week), events (no cancelled column; added the undocumented recur_id), and tasks.created_on naming. Header version corrected to match this table. All 11 live tables confirmed to have RLS enabled with an owner-scoped policy -- no vulnerability found. |
 | v2.9.7 | finance-sync no longer re-upserts a transaction whose email was re-fetched inside the sync overlap window -- previously this silently reverted any manual edit (category, merchant, amount, etc.) made in the Finance tab back to the freshly parsed values. Also added common Singapore F&B/retail/supermarket/cinema chains to auto-categorization. |
 | v2.9.6 | DBS card transaction parser (covers physical/contactless/Google Wallet card alerts); finance tab shows when the transaction list was last synced and when the next scheduled sync runs; finance-sync now auto-resolves a stale Unmatched Inbox entry once a later fix lets that same email parse successfully. |

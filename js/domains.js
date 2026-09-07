@@ -64,8 +64,10 @@ function renderDomainLibrary() {
     return;
   }
 
+  const active = activeDomains();
+  const archived = (LIFE_DOMAINS || []).filter(d => d.isArchived);
   const groups = {};
-  (LIFE_DOMAINS || []).forEach(d => { (groups[d.cat] = groups[d.cat] || []).push(d); });
+  active.forEach(d => { (groups[d.cat] = groups[d.cat] || []).push(d); });
   const order = ['work', 'study', 'health', 'personal', 'leisure', 'chore', 'other'];
 
   let html = `<div class="dom-lib-header">
@@ -89,7 +91,7 @@ function renderDomainLibrary() {
           const isAnchor = d.tags && d.tags.includes('anchor');
           const delBtn = isAnchor
             ? `<span class="dom-lib-card-core" title="Core domain — can't be removed">CORE</span>`
-            : `<button class="dom-lib-card-del" onclick="removeDomainFromLibrary('${d.id}', event)" title="Delete domain">✕</button>`;
+            : `<button class="dom-lib-card-del" onclick="archiveDomainFromLibrary('${d.id}', event)" title="Archive — stop scoring, keep logs">🗄</button>`;
           return `<div class="dom-lib-card" onclick="goToDomainsTab('${d.id}')">
             ${delBtn}
             <div class="dom-lib-card-title">${esc(d.title)}</div>
@@ -100,7 +102,58 @@ function renderDomainLibrary() {
     </div>`;
   });
 
+  if (archived.length) {
+    html += `<div class="dom-lib-section">
+      <div class="dom-lib-section-title" style="cursor:pointer" onclick="toggleDomainLibArchived()">
+        ${domainLibShowArchived ? '▾' : '▸'} ARCHIVED (${archived.length})
+      </div>
+      ${domainLibShowArchived ? `<div class="dom-lib-grid">
+        ${archived.map(d => {
+          const blockCt = (d.detailContent || []).length;
+          return `<div class="dom-lib-card" style="opacity:.6" onclick="goToDomainsTab('${d.id}')">
+            <div style="position:absolute;top:6px;right:6px;display:flex;gap:4px">
+              <button class="dom-lib-card-del" style="position:static" onclick="restoreDomainFromLibrary('${d.id}', event)" title="Restore">↺</button>
+              <button class="dom-lib-card-del" style="position:static" onclick="removeDomainFromLibrary('${d.id}', event)" title="Delete permanently">✕</button>
+            </div>
+            <div class="dom-lib-card-title">${esc(d.title)}</div>
+            <div class="dom-lib-card-meta">${blockCt ? blockCt + ' block' + (blockCt === 1 ? '' : 's') : 'no details yet'}</div>
+          </div>`;
+        }).join('')}
+      </div>` : ''}
+    </div>`;
+  }
+
   container.innerHTML = html;
+}
+
+function toggleDomainLibArchived() {
+  domainLibShowArchived = !domainLibShowArchived;
+  renderDomainLibrary();
+}
+
+async function archiveDomainFromLibrary(id, evt) {
+  if (evt) evt.stopPropagation();
+  const d = LIFE_DOMAINS.find(x => x.id === id);
+  if (!d) return;
+  if (!confirm(`Archive "${d.title}"? It stops scoring and drops out of the day generator, but stays readable with its logs intact.`)) return;
+  const ok = await setDomainArchived(id, true);
+  if (!ok) return;
+  notify('🗄 Archived', `"${d.title}" excluded from day generation`, 'var(--muted)');
+  renderDomainLibrary();
+  const badge = document.getElementById('di-domain-count');
+  if (badge) badge.textContent = activeDomains().length + ' domains';
+}
+
+async function restoreDomainFromLibrary(id, evt) {
+  if (evt) evt.stopPropagation();
+  const d = LIFE_DOMAINS.find(x => x.id === id);
+  if (!d) return;
+  const ok = await setDomainArchived(id, false);
+  if (!ok) return;
+  notify('◈ Restored', `"${d.title}" back in the day generator`, 'var(--accent)');
+  renderDomainLibrary();
+  const badge = document.getElementById('di-domain-count');
+  if (badge) badge.textContent = activeDomains().length + ' domains';
 }
 
 function toggleDomainLibAdd() {
@@ -176,7 +229,7 @@ async function addNewDomainFromLibrary() {
   notify('◈ Domain Added', `"${title}" saved to cloud`, 'var(--accent)');
   renderDomainLibrary();
   const badge = document.getElementById('di-domain-count');
-  if (badge) badge.textContent = LIFE_DOMAINS.length + ' domains';
+  if (badge) badge.textContent = activeDomains().length + ' domains';
 }
 
 async function removeDomainFromLibrary(id, evt) {
@@ -184,7 +237,7 @@ async function removeDomainFromLibrary(id, evt) {
   const d = LIFE_DOMAINS.find(x => x.id === id);
   if (!d) return;
   if (d.tags && d.tags.includes('anchor')) { notify('⚠ Cannot Remove', 'Anchor domains are core to the system', 'var(--accent2)'); return; }
-  if (!confirm(`Delete domain "${d.title}"? This also removes its saved links, notes, checklists, and logs.`)) return;
+  if (!confirm(`Permanently delete "${d.title}"? This also removes its saved links, notes, checklists, and logs — this can't be undone.`)) return;
   setSyncStatus('syncing');
   await removeDomainFromSupabase(d);
   LIFE_DOMAINS = LIFE_DOMAINS.filter(x => x.id !== id);
@@ -193,7 +246,7 @@ async function removeDomainFromLibrary(id, evt) {
   notify('◈ Removed', `"${d.title}" deleted from cloud`, 'var(--muted)');
   renderDomainLibrary();
   const badge = document.getElementById('di-domain-count');
-  if (badge) badge.textContent = LIFE_DOMAINS.length + ' domains';
+  if (badge) badge.textContent = activeDomains().length + ' domains';
 }
 
 // ── DETAIL VIEW ──
@@ -505,6 +558,10 @@ async function addProgressEntry(domainId, blockIdx) {
   content[blockIdx] = block;
   const ok = await saveDomainDetail(d, content);
   if (!ok) return;
+  // This progress log is the signal people actually keep day to day — logging
+  // here counts as "did it today" for the day generator's overdue scoring,
+  // instead of relying on ticking off the separate generated daily task.
+  if (date === today()) await recordDomainDone(d.id);
   renderDomainLibrary();
   notify('◈ Logged', d.title, 'var(--accent)');
 }

@@ -93,7 +93,27 @@ function dbRowToDomain(row) {
     tags:                  row.tags || [],
     note:                  row.note || '',
     detailContent:         row.detail_content || [],
+    isArchived:            row.is_archived || false,
   };
+}
+
+// Archived domains stay in LIFE_DOMAINS (still readable, still holding logs)
+// but are excluded from scoring, generation, and the default domain list.
+function activeDomains() {
+  return LIFE_DOMAINS.filter(d => !d.isArchived);
+}
+
+async function setDomainArchived(id, archived) {
+  const d = LIFE_DOMAINS.find(x => x.id === id);
+  if (!d) return false;
+  if (d.tags && d.tags.includes('anchor')) { notify('⚠ Cannot Archive', 'Anchor domains are core to the system', 'var(--accent2)'); return false; }
+  if (!d._db_id) { notify('⚠ Error', 'Domain not synced yet — try again shortly', 'var(--accent2)'); return false; }
+  setSyncStatus('syncing');
+  const { error } = await db.from('user_domains').update({ is_archived: archived }).eq('id', d._db_id);
+  if (error) { notify('⚠ Error', 'Could not update domain', 'var(--danger)'); setSyncStatus('error'); return false; }
+  d.isArchived = archived;
+  setSyncStatus('synced');
+  return true;
 }
 
 async function addDomainToSupabase(domain) {
@@ -193,7 +213,7 @@ function buildUrgencyMap() {
     // Generic match: any domain whose title words appear in the event title
     // gets its urgency bumped — covers every domain, personal or not, without
     // hardcoding anyone's specific employer/project/collaborator names here.
-    LIFE_DOMAINS.forEach(d => {
+    activeDomains().forEach(d => {
       const words = d.title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
       if (words.some(w => tl.includes(w)))
         map[d.id] = Math.min(map[d.id] ?? 9999, days);
@@ -204,7 +224,7 @@ function buildUrgencyMap() {
 
 function generateDailyPlan(lastDoneMap, urgencyMap) {
   const MAX_STUDY = 2, MAX_WORK = 3;
-  const scored = LIFE_DOMAINS.map(d => ({
+  const scored = activeDomains().map(d => ({
     ...d, score: scoreDomain(d, lastDoneMap[d.id] || null, urgencyMap[d.id] ?? null)
   })).sort((a, b) => b.score - a.score);
 
@@ -262,7 +282,7 @@ async function runDayGenerator() {
     { onConflict: 'user_id,domain_id' }
   );
   state.lastGenDate = today();
-  notify('◈ Day Generated!', `${plan.length} tasks — ${LIFE_DOMAINS.length} domains scored`, 'var(--accent)');
+  notify('◈ Day Generated!', `${plan.length} tasks — ${activeDomains().length} domains scored`, 'var(--accent)');
   renderDaily();
 }
 
@@ -308,6 +328,28 @@ function toggleDomainManager() {
   if (domainManagerOpen) renderDomainManager();
 }
 
+let domainManagerShowArchived = false;
+
+function toggleDomainManagerArchived() {
+  domainManagerShowArchived = !domainManagerShowArchived;
+  renderDomainManager();
+}
+
+async function archiveDomainFromManager(id) {
+  if (!confirm('Archive this domain? It stops scoring and drops out of the day generator, but stays readable with its logs intact.')) return;
+  const ok = await setDomainArchived(id, true);
+  if (!ok) return;
+  notify('🗄 Archived', 'Excluded from day generation', 'var(--muted)');
+  renderDomainManager();
+}
+
+async function restoreDomainFromManager(id) {
+  const ok = await setDomainArchived(id, false);
+  if (!ok) return;
+  notify('◈ Restored', 'Back in the day generator', 'var(--accent)');
+  renderDomainManager();
+}
+
 function renderDomainManager() {
   const panel = document.getElementById('di-domain-panel');
   if (!panel) return;
@@ -315,13 +357,15 @@ function renderDomainManager() {
     study:'var(--accent3)', work:'var(--accent)', health:'var(--success)',
     personal:'var(--accent4)', leisure:'var(--accent2)', chore:'var(--muted)', other:'var(--muted)'
   };
+  const active = activeDomains();
+  const archived = LIFE_DOMAINS.filter(d => d.isArchived);
   let html = `
     <div class="dm-header">
-      <div class="dm-title">◈ Interest Domains <span style="color:var(--muted);font-size:10px">${LIFE_DOMAINS.length} active · synced to cloud</span></div>
+      <div class="dm-title">◈ Interest Domains <span style="color:var(--muted);font-size:10px">${active.length} active · synced to cloud</span></div>
       <div class="dm-subtitle">Add new interests anytime — stored in Supabase, synced across all your devices. Core anchors can't be removed.</div>
     </div>
     <div class="dm-list">
-      ${LIFE_DOMAINS.map(d => `
+      ${active.map(d => `
         <div class="dm-item">
           <div class="dm-item-left">
             <div class="dm-item-title">${esc(d.title)}</div>
@@ -335,11 +379,34 @@ function renderDomainManager() {
             <button class="dom-detail-link-btn" onclick="goToDomainsTab('${d.id}')">▸ view details / plan →</button>
           </div>
           ${!d.tags || !d.tags.includes('anchor')
-            ? `<button class="dm-del" onclick="removeDomain('${d.id}')" title="Remove">✕</button>`
+            ? `<button class="dm-del" onclick="archiveDomainFromManager('${d.id}')" title="Archive — stop scoring, keep logs">🗄</button>`
             : '<span style="font-size:10px;color:var(--muted);font-family:var(--mono)">CORE</span>'}
         </div>
       `).join('')}
     </div>
+    ${archived.length ? `
+      <div class="dm-archived-toggle" onclick="toggleDomainManagerArchived()" style="cursor:pointer;font-size:10px;color:var(--muted);font-family:var(--mono);margin:10px 0">
+        ${domainManagerShowArchived ? '▾' : '▸'} ${archived.length} archived
+      </div>
+      ${domainManagerShowArchived ? `<div class="dm-list">
+        ${archived.map(d => `
+          <div class="dm-item" style="opacity:.6">
+            <div class="dm-item-left">
+              <div class="dm-item-title">${esc(d.title)}</div>
+              <div class="dm-item-meta">
+                <span style="color:${catColors[d.cat]||'var(--muted)'}; font-size:10px; font-family:var(--mono);">${d.cat.toUpperCase()}</span>
+                <span class="dm-pill">ARCHIVED</span>
+              </div>
+              <button class="dom-detail-link-btn" onclick="goToDomainsTab('${d.id}')">▸ view details / plan →</button>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="dm-del" onclick="restoreDomainFromManager('${d.id}')" title="Restore">↺</button>
+              <button class="dm-del" onclick="removeDomain('${d.id}')" title="Delete permanently">✕</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>` : ''}
+    ` : ''}
     <div class="dm-add-section">
       <div class="dm-add-title">▸ Add New Interest</div>
       <div class="dm-add-row">
@@ -403,7 +470,7 @@ async function addNewDomain() {
   LIFE_DOMAINS.push(newDomain);
   setSyncStatus('synced');
   const badge = document.getElementById('di-domain-count');
-  if (badge) badge.textContent = LIFE_DOMAINS.length + ' domains';
+  if (badge) badge.textContent = activeDomains().length + ' domains';
   notify('◈ Domain Added', `"${title}" saved to cloud`, 'var(--accent)');
   renderDomainManager();
 }
@@ -412,12 +479,13 @@ async function removeDomain(id) {
   const d = LIFE_DOMAINS.find(x => x.id === id);
   if (!d) return;
   if (d.tags && d.tags.includes('anchor')) { notify('⚠ Cannot Remove', 'Anchor domains are core to the system', 'var(--accent2)'); return; }
+  if (!confirm(`Permanently delete "${d.title}"? This also removes its saved links, notes, checklists, and logs — this can't be undone.`)) return;
   setSyncStatus('syncing');
   await removeDomainFromSupabase(d);
   LIFE_DOMAINS = LIFE_DOMAINS.filter(x => x.id !== id);
   setSyncStatus('synced');
   const badge = document.getElementById('di-domain-count');
-  if (badge) badge.textContent = LIFE_DOMAINS.length + ' domains';
+  if (badge) badge.textContent = activeDomains().length + ' domains';
   notify('◈ Removed', `"${d.title}" deleted from cloud`, 'var(--muted)');
   renderDomainManager();
 }
@@ -441,7 +509,7 @@ function renderDaily() {
   document.getElementById('di-ring-text').textContent = pct + '%';
 
   const badge = document.getElementById('di-domain-count');
-  if (badge) badge.textContent = LIFE_DOMAINS.length + ' domains';
+  if (badge) badge.textContent = activeDomains().length + ' domains';
 
   let list = [...todayItems];
   if (dailyFilter === 'pending') list = list.filter(t => !t.done);
