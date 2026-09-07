@@ -19,6 +19,7 @@
 
 let openDomainId = null;
 let domainLibAddOpen = false;
+let domainLibShowArchived = false;
 // Tracks which single entry/item/block currently shows an inline edit form:
 // { blockIdx, kind: 'progress'|'checklist'|'note'|'link'|'program', idx? }
 let domEditTarget = null;
