@@ -222,14 +222,71 @@ function buildUrgencyMap() {
   return map;
 }
 
-function generateDailyPlan(lastDoneMap, urgencyMap) {
+// A task/event due soon has no domain to score against, but a deadline
+// shouldn't wait for a recurring-habit slot to open up — so these compete
+// on the same score scale as domains (4-7 days out) or bypass caps entirely
+// (<=3 days out), same as anchors do.
+const TASK_CAT_MAP   = { module:'study', research:'study', project:'work', hackathon:'work', career:'work', personal:'personal' };
+const EVENT_TYPE_MAP = { exam:'study', class:'study', meeting:'work', deadline:'work', personal:'personal' };
+
+function buildDeadlineCandidates() {
+  const t = today();
+  const existingSourceIds = new Set(
+    (state.dailyTasks || [])
+      .filter(dt => dt.date === t && dt.source_id)
+      .map(dt => String(dt.source_id))
+  );
+  const candidates = [];
+
+  (state.tasks || []).forEach(tk => {
+    if (tk.done || !tk.due || existingSourceIds.has(String(tk.id))) return;
+    const daysUntil = Math.ceil((new Date(tk.due) - new Date(t)) / 86400000);
+    if (daysUntil < 0 || daysUntil > 7) return;
+    candidates.push({
+      id: 'task_' + tk.id, title: tk.name,
+      cat: TASK_CAT_MAP[tk.category] || 'personal',
+      pri: tk.priority || 'med', time: null,
+      note: tk.note || `Due ${tk.due}`,
+      guaranteed: daysUntil <= 3,
+      score: (tk.priority === 'high' ? 80 : tk.priority === 'low' ? 30 : 50) + Math.max(0, 7 - daysUntil) * 5,
+      sourceType: 'task', sourceId: tk.id,
+    });
+  });
+
+  (state.events || []).forEach(ev => {
+    if (!ev.date || existingSourceIds.has(String(ev.id))) return;
+    const daysUntil = Math.ceil((new Date(ev.date) - new Date(t)) / 86400000);
+    if (daysUntil < 0 || daysUntil > 7) return;
+    const isHigh = ev.type === 'exam' || ev.priority === 'high';
+    candidates.push({
+      id: 'event_' + ev.id, title: ev.title,
+      cat: EVENT_TYPE_MAP[ev.type] || 'work',
+      pri: isHigh ? 'high' : (ev.priority === 'low' ? 'low' : 'med'), time: ev.time || null,
+      note: ev.note || (ev.type ? ev.type.toUpperCase() : ''),
+      guaranteed: daysUntil <= 3,
+      score: (isHigh ? 80 : 50) + Math.max(0, 7 - daysUntil) * 5,
+      sourceType: 'event', sourceId: ev.id,
+    });
+  });
+
+  return candidates;
+}
+
+function generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates) {
   const MAX_STUDY = 2, MAX_WORK = 3;
-  const scored = activeDomains().map(d => ({
+  const scoredDomains = activeDomains().map(d => ({
     ...d, score: scoreDomain(d, lastDoneMap[d.id] || null, urgencyMap[d.id] ?? null)
-  })).sort((a, b) => b.score - a.score);
+  }));
+  const guaranteed = (deadlineCandidates || []).filter(c => c.guaranteed);
+  const competing  = (deadlineCandidates || []).filter(c => !c.guaranteed);
+  const scored = [...scoredDomains, ...competing].sort((a, b) => b.score - a.score);
 
   const selected = [];
   let studyCount = 0, workCount = 0, physCount = 0, leisureCount = 0;
+
+  // Deadlines within 3 days bypass every cap below, same reasoning as anchors —
+  // a due date doesn't care how many study blocks are already scheduled.
+  guaranteed.forEach(d => { if (!selected.find(s => s.id === d.id)) selected.push(d); });
 
   // Anchors always first
   scored.filter(d => d.tags && d.tags.includes('anchor'))
@@ -265,11 +322,15 @@ function generateDailyPlan(lastDoneMap, urgencyMap) {
 async function runDayGenerator() {
   const lastDoneMap = state.lastDoneMap || await loadLastDoneMap();
   const urgencyMap  = buildUrgencyMap();
-  const plan        = generateDailyPlan(lastDoneMap, urgencyMap);
+  const deadlineCandidates = buildDeadlineCandidates();
+  const plan        = generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates);
   const rows = plan.map(d => ({
     user_id: currentUser.id, title: d.title, cat: d.cat, pri: d.pri,
     time: d.time || null, done: false, date: today(),
-    note: d.note || null, domain_id: d.id,
+    note: d.note || null,
+    domain_id: d.sourceType ? null : d.id,
+    source_type: d.sourceType || null,
+    source_id: d.sourceId || null,
   }));
   setSyncStatus('syncing');
   const { data, error } = await db.from('daily_tasks').insert(rows).select();
@@ -282,12 +343,12 @@ async function runDayGenerator() {
     { onConflict: 'user_id,domain_id' }
   );
   state.lastGenDate = today();
-  notify('◈ Day Generated!', `${plan.length} tasks — ${activeDomains().length} domains scored`, 'var(--accent)');
+  notify('◈ Day Generated!', `${activeDomains().length} domains + ${deadlineCandidates.length} deadlines scored — ${plan.length} tasks`, 'var(--accent)');
   renderDaily();
 }
 
 async function rescoreAndRebuild() {
-  const todayAuto   = (state.dailyTasks || []).filter(t => t.date === today() && t.domain_id);
+  const todayAuto   = (state.dailyTasks || []).filter(t => t.date === today() && (t.domain_id || t.source_type));
   const doneAutoIds = todayAuto.filter(t => t.done).map(t => t.domain_id).filter(Boolean);
 
   // Mark done domains as last-done today in Supabase
@@ -545,10 +606,10 @@ function dailyItemHTML(t) {
   const isNow = t.time && (() => { const [h,m] = t.time.split(':').map(Number); return Math.abs(nowMins-(h*60+m)) <= 30; })();
   const timeStr = t.time  ? `<span class="di-time ${isNow?'now':''}">⏰ ${fmt12(t.time)}</span>` : '';
   const noteStr = t.note  ? `<span class="di-note">${esc(t.note)}</span>` : '';
-  const autoTag = t.domain_id ? `<span class="di-auto-tag">▸ AUTO</span>` : '';
+  const autoTag = t.domain_id ? `<span class="di-auto-tag">▸ AUTO</span>` : (t.source_type ? `<span class="di-auto-tag">▸ DEADLINE</span>` : '');
   const detailBtn = t.domain_id ? `<button class="dom-detail-link-btn" style="margin-top:4px" onclick="goToDomainsTab('${t.domain_id}')">▸ view details →</button>` : '';
   return `<div class="daily-item ${t.done?'di-done':''}" data-pri="${t.pri}" id="di-${t.id}">
-    <div class="di-check ${t.done?'checked':''}" onclick="toggleDaily('${t.id}',${t.done},'${t.domain_id||''}')">${t.done?'✓':''}</div>
+    <div class="di-check ${t.done?'checked':''}" onclick="toggleDaily('${t.id}',${t.done})">${t.done?'✓':''}</div>
     <div class="di-body">
       <div class="di-title">${esc(t.title)}</div>
       <div class="di-meta">
@@ -602,20 +663,32 @@ async function addDailyTask() {
   renderDaily();
 }
 
-async function toggleDaily(id, currentDone, domainId) {
+async function toggleDaily(id, currentDone) {
+  const t = state.dailyTasks.find(x => x.id == id);
+  if (!t) return;
   setSyncStatus('syncing');
   const { error } = await db.from('daily_tasks').update({ done: !currentDone }).eq('id', id);
   if (error) { setSyncStatus('error'); return; }
-  const t = state.dailyTasks.find(x => x.id == id);
-  if (t) {
-    t.done = !currentDone;
-    if (!currentDone) {
-      notify('✓ Done!', t.title, 'var(--success)');
-      if (domainId) await recordDomainDone(domainId);
-    }
+  t.done = !currentDone;
+  if (!currentDone) {
+    notify('✓ Done!', t.title, 'var(--success)');
+    if (t.domain_id) await recordDomainDone(t.domain_id);
+    if (t.source_type === 'task' && t.source_id) await markSourceTaskDone(t.source_id);
   }
   setSyncStatus('synced');
   renderDaily();
+}
+
+// A completed task-sourced daily item marks the real task done too — single
+// source of truth, same reasoning as recordDomainDone for domain-sourced items.
+// Event-sourced items have no `done` concept in the events table (no such
+// column), so completing one only flips the daily_tasks row, same as a
+// manually-added item.
+async function markSourceTaskDone(taskId) {
+  await db.from('tasks').update({ done: true }).eq('id', taskId);
+  const task = (state.tasks || []).find(x => x.id === taskId);
+  if (task) task.done = true;
+  if (typeof renderTasks === 'function') renderTasks();
 }
 
 async function deleteDaily(id) {
