@@ -29,14 +29,14 @@ def parse(msg) -> Transaction:
         # This template only confirms the incoming-transfer case ("You've
         # received a transfer") -- direction is known for certain, no need
         # to guess it from the From/To lines.
-        amount, currency, txn_date = received
+        amount, currency, txn_date, txn_time = received
         direction = "credit"
     else:
         direction = common.detect_direction(from_line, to_line)
         dt_match = common.DATETIME_RE.search(body)
-        txn_date = common.resolve_txn_date(
-            dt_match.group("datetime") if dt_match else None, email_date
-        )
+        dt_text = dt_match.group("datetime") if dt_match else None
+        txn_date = common.resolve_txn_date(dt_text, email_date)
+        txn_time = common.resolve_txn_time(dt_text, email_date)
         amount, currency = common.parse_amount(body)
 
     my_line = to_line if direction == "credit" else from_line
@@ -46,6 +46,7 @@ def parse(msg) -> Transaction:
         bank="dbs",
         account_mask=common.account_mask(my_line),
         txn_date=txn_date or (email_date.date().isoformat() if email_date else ""),
+        txn_time=txn_time,
         amount=amount,
         currency=currency,
         direction=direction,

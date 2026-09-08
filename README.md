@@ -110,9 +110,10 @@ user_domains (user_id, domain_id, title, cat, pri, time_slot, duration_mins,
 user_domain_progress (user_id, domain_id, last_done)
 
 -- Bank transactions, synced from Gmail by finance-sync/ (see that folder's README)
-finance_transactions (user_id, external_id, bank, account_mask, txn_date, amount,
-                       currency, direction, merchant, category, raw_subject,
-                       status, payment_method, txn_ref, is_estimated)
+finance_transactions (user_id, external_id, bank, account_mask, txn_date,
+                       txn_time, amount, currency, direction, merchant,
+                       category, raw_subject, status, payment_method,
+                       txn_ref, is_estimated)
 
 -- Bank notification emails finance-sync couldn't parse, surfaced in the
 -- Finance tab's Unmatched Inbox instead of silently dropped
@@ -258,7 +259,8 @@ create table finance_transactions (
   user_id uuid references auth.users(id) on delete cascade,
   external_id text not null,
   bank text not null, account_mask text,
-  txn_date date not null, amount numeric(12,2) not null,
+  txn_date date not null, txn_time text,
+  amount numeric(12,2) not null,
   currency text default 'THB', direction text not null,
   merchant text, category text default 'uncategorized',
   raw_subject text,
@@ -345,6 +347,7 @@ create policy "Users own their data" on finance_sync_state for all using (auth.u
 
 | Version | What changed |
 |---|---|
+| v2.9.13 | Finance transactions now capture the actual transaction time, not just the date -- the bank alert emails already carried it (`Date & Time: ...`), it was parsed and discarded. All 4 live parsers (DBS card/PayNow/NETS Scan & Pay, Kasikorn) updated; `finance_transactions.txn_time` added. Same-day transactions are now sorted chronologically instead of arbitrarily, and the Finance tab shows the time next to the date. |
 | v2.9.12 | Fixed the deadline-scoring feature shipped in v2.9.11: an event on a *future* day (not today) was being surfaced in today's plan at its own time-of-day, causing real time clashes with today's actual classes and flooding the plan with the whole week's timetable. Now only events happening *today* (any type) are guaranteed in with their real time; a future date only surfaces if it's an exam/deadline, with no time attached. Daily items now show an end time (domain duration, or an event's real end_time) alongside the start. Fixed a priority-vocabulary mismatch (`med` vs `medium`) that silently broke the priority color stripe on deadline-sourced items; the priority label itself is now color-coded. Daily Planner filters are now multi-select (toggle any combination) and include the previously-missing Personal/Chore/Other categories. |
 | v2.9.11 | Day generator now scores today's open `tasks` (with a `due` date) and upcoming `events` alongside domains, not domains alone — a deadline within 7 days competes on the same score scale as a domain; within 3 days it's guaranteed into the plan regardless of category caps. Completing a task-sourced item in the Daily Planner marks the real task done too. `daily_tasks` gained `source_type`/`source_id` to track which task/event a row came from. |
 | v2.9.10 | Task category dropdowns (add + edit) and `.tag-*` CSS were missing `project` and `career` — a `career` task (used by the careers-tracking hub project since 2026-09-08) or `project` task (used by seed data) rendered as an unstyled tag and got silently reset to `module` if edited through the UI. Both categories now render and edit correctly. |

@@ -37,7 +37,7 @@ async function loadAllData() {
     state.reviews = reviews || [];
     const { data: events } = await db.from('events').select('*').eq('user_id', uid).order('date', { ascending: true });
     state.events = events || [];
-    const { data: financeTransactions } = await db.from('finance_transactions').select('*').eq('user_id', uid).order('txn_date', { ascending: false });
+    const { data: financeTransactions } = await db.from('finance_transactions').select('*').eq('user_id', uid).order('txn_date', { ascending: false }).order('txn_time', { ascending: false });
     state.financeTransactions = financeTransactions || [];
     const { data: financeUnmatched } = await db.from('finance_unmatched').select('*').eq('user_id', uid).order('received_at', { ascending: false });
     state.financeUnmatched = financeUnmatched || [];

@@ -341,7 +341,7 @@ function financeTxnHTML(t) {
     <div class="fi-txn-body" onclick="startFinanceEdit('${t.id}')">
       <div class="fi-txn-merchant">${t.merchant || 'Unknown'} ${pendingBadge}${estimatedBadge}</div>
       <div class="fi-txn-meta">
-        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${fmtDate(t.txn_date)}</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${fmtDate(t.txn_date)}${t.txn_time ? ' · ' + fmt12(t.txn_time) : ''}</span>
         <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${t.bank}${t.account_mask ? ' ••' + t.account_mask : ''}</span>
       </div>
     </div>

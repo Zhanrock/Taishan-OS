@@ -41,15 +41,16 @@ def parse(msg) -> Transaction:
     counterparty_line = from_line if direction == "credit" else to_line
 
     email_date = common.safe_email_date(msg)
-    txn_date = common.resolve_txn_date(
-        dt_match.group("datetime") if dt_match else None, email_date
-    )
+    dt_text = dt_match.group("datetime") if dt_match else None
+    txn_date = common.resolve_txn_date(dt_text, email_date)
+    txn_time = common.resolve_txn_time(dt_text, email_date)
     amount, currency = common.parse_amount(body)
 
     return Transaction(
         bank="dbs",
         account_mask=common.account_mask(my_line),
         txn_date=txn_date or (email_date.date().isoformat() if email_date else ""),
+        txn_time=txn_time,
         amount=amount,
         currency=currency,
         direction=direction,

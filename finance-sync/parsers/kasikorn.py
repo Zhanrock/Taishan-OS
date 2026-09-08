@@ -15,7 +15,7 @@ from .base import Transaction, get_body_text
 
 SENDER = "kasikornbank.com"
 
-DATE_RE = re.compile(r"Transaction Date:\s*(?P<date>\d{2}/\d{2}/\d{4})")
+DATE_RE = re.compile(r"Transaction Date:\s*(?P<date>\d{2}/\d{2}/\d{4})(?:\s+(?P<time>\d{2}:\d{2}):\d{2})?")
 AMOUNT_RE = re.compile(r"Amount\s*\(THB\):\s*(?P<amount>[\d,]+\.\d{2})")
 COMPANY_RE = re.compile(r"Company Name:\s*(?P<company>.+)")
 ACCOUNT_RE = re.compile(r"Paid From Account:\s*(?P<raw>\S+)")
@@ -37,9 +37,11 @@ def parse(msg) -> Transaction:
     account_match = ACCOUNT_RE.search(body)
 
     txn_date = msg.get("Date", "")
+    txn_time = None
     if date_match:
         day, month, year = date_match.group("date").split("/")
         txn_date = f"{year}-{month}-{day}"
+        txn_time = date_match.group("time")
 
     account_mask = None
     if account_match:
@@ -50,6 +52,7 @@ def parse(msg) -> Transaction:
         bank="kasikorn",
         account_mask=account_mask,
         txn_date=txn_date,
+        txn_time=txn_time,
         amount=float(amount_match.group("amount").replace(",", "")) if amount_match else 0.0,
         currency="THB",
         direction="debit",

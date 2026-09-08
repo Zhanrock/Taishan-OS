@@ -81,11 +81,24 @@ def resolve_txn_date(dt_text: str | None, email_date) -> str | None:
     return parsed.date().isoformat()
 
 
-def parse_received_transfer(body: str) -> tuple[float, str, str] | None:
-    """Amount/currency/date for the "You've received a transfer" narrative
-    template (see RECEIVED_TRANSFER_RE). This template's date already
-    includes the year, so -- unlike resolve_txn_date's yearless "DD Mon
-    HH:MM" -- no year-guessing against the email's own Date header is
+def resolve_txn_time(dt_text: str | None, email_date) -> str | None:
+    """Time-of-day from the same 'DD Mon HH:MM' text resolve_txn_date reads.
+    No year-guessing correction is needed here -- only the date component
+    can land in the wrong year, never the clock time."""
+    if not dt_text or not email_date:
+        return None
+    try:
+        parsed = dateparser.parse(dt_text, default=email_date)
+    except (ValueError, TypeError, OverflowError):
+        return None
+    return parsed.strftime("%H:%M")
+
+
+def parse_received_transfer(body: str) -> tuple[float, str, str, str | None] | None:
+    """Amount/currency/date/time for the "You've received a transfer"
+    narrative template (see RECEIVED_TRANSFER_RE). This template's date
+    already includes the year, so -- unlike resolve_txn_date's yearless "DD
+    Mon HH:MM" -- no year-guessing against the email's own Date header is
     needed."""
     match = RECEIVED_TRANSFER_RE.search(body)
     if not match:
@@ -96,7 +109,7 @@ def parse_received_transfer(body: str) -> tuple[float, str, str] | None:
         parsed = dateparser.parse(match.group("datetime"))
     except (ValueError, TypeError, OverflowError):
         return None
-    return amount, currency, parsed.date().isoformat()
+    return amount, currency, parsed.date().isoformat(), parsed.strftime("%H:%M")
 
 
 def txn_ref(body: str) -> str | None:

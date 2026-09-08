@@ -32,6 +32,7 @@ def test_card_transaction_alert():
     assert txn["merchant"] == "MCDONALD'S (NTU)"
     assert txn["account_mask"] == "0000"
     assert txn["txn_date"] == "2026-09-01"
+    assert txn["txn_time"] == "18:33"
     assert txn["txn_ref"] == "000000000000"
     assert txn["status"] == "posted"
     assert txn["payment_method"] == "card"

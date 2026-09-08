@@ -12,11 +12,13 @@ Each bank module (e.g. example_bank.py) exposes:
                        or NeedsReview (claimed but couldn't be classified --
                        logged to finance_unmatched).
 
-Expected parse() return shape (all keys required except account_mask):
+Expected parse() return shape (all keys required except account_mask and
+txn_time):
 {
   "bank": "example_bank",
   "account_mask": "1234",       # last 4 digits, or None if not present
   "txn_date": "2026-08-24",     # ISO date string
+  "txn_time": "14:32",          # "HH:MM" 24h, or None if the body has no time
   "amount": 129.00,
   "currency": "THB",
   "direction": "debit",         # "debit" | "credit"
@@ -36,6 +38,7 @@ class Transaction(TypedDict, total=False):
     bank: str
     account_mask: str | None
     txn_date: str
+    txn_time: str | None
     amount: float
     currency: str
     direction: str

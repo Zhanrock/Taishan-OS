@@ -39,6 +39,7 @@ def test_paynow_confirmation():
     assert txn["merchant"] == "FOMO PAY PTE. LTD."
     assert txn["account_mask"] == "0000"
     assert txn["txn_date"] == "2026-08-29"
+    assert txn["txn_time"] == "20:29"
     assert txn["txn_ref"] is None  # this template has no Transaction Ref line
     assert txn["status"] == "posted"
     assert txn["payment_method"] == "paynow"
@@ -68,6 +69,7 @@ def test_paynow_received_transfer():
     assert txn["merchant"] == "SAMPLE SENDER NAME"
     assert txn["account_mask"] == "0000"
     assert txn["txn_date"] == "2026-09-02"
+    assert txn["txn_time"] == "23:49"
     assert txn["txn_ref"] == "1788364140012284715400C100000000000"
     assert txn["status"] == "posted"
     assert txn["payment_method"] == "paynow"

@@ -34,6 +34,7 @@ def test_nets_scan_pay_plain_text():
     assert txn["merchant"] == "POKKA PTE LTD"
     assert txn["account_mask"] == "0000"
     assert txn["txn_date"] == "2026-08-31"
+    assert txn["txn_time"] == "19:57"
     assert txn["txn_ref"] == "000000000000000"
     assert txn["status"] == "posted"
     assert txn["payment_method"] == "nets_qr"
