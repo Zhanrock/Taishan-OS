@@ -78,7 +78,9 @@ function _injectTaskEditForm(id) {
       <select class="form-select" id="etCat">
         <option value="module" ${t.category==='module'?'selected':''}>&#128218; Module</option>
         <option value="research" ${t.category==='research'?'selected':''}>&#128300; Research</option>
+        <option value="project" ${t.category==='project'?'selected':''}>&#128736; Project</option>
         <option value="hackathon" ${t.category==='hackathon'?'selected':''}>&#9889; Hackathon</option>
+        <option value="career" ${t.category==='career'?'selected':''}>&#128188; Career</option>
         <option value="personal" ${t.category==='personal'?'selected':''}>&#11088; Personal</option>
       </select>
       <select class="form-select" id="etPrio">

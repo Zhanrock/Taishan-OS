@@ -23,6 +23,8 @@
 .tag-research  { border-color: rgba(106,255,212,0.4); color: var(--accent3); background: rgba(106,255,212,0.08); }
 .tag-hackathon { border-color: rgba(255,106,106,0.4); color: var(--accent2); background: rgba(255,106,106,0.08); }
 .tag-personal  { border-color: rgba(255,211,106,0.4); color: var(--accent4); background: rgba(255,211,106,0.08); }
+.tag-project   { border-color: rgba(160,160,255,0.4); color: #a0a0ff; background: rgba(160,160,255,0.08); }
+.tag-career    { border-color: rgba(106,200,255,0.4); color: #6ac8ff; background: rgba(106,200,255,0.08); }
 .task-due { font-family: var(--mono); font-size: 10px; color: var(--muted); white-space: nowrap; }
 .task-due.urgent { color: var(--accent2); }
 /* Right-side action group — fixed column so it never shifts */
