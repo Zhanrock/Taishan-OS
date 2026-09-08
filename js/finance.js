@@ -505,7 +505,7 @@ function extractFinancePaste() {
 
 function exportFinanceCsv() {
   const txns = financeCurrentMonthTxns();
-  const cols = ['txn_date', 'merchant', 'amount', 'currency', 'direction', 'category', 'payment_method', 'status', 'bank'];
+  const cols = ['txn_date', 'txn_time', 'merchant', 'amount', 'currency', 'direction', 'category', 'payment_method', 'status', 'bank'];
   const csvEscape = (v) => {
     const s = v === null || v === undefined ? '' : String(v);
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
@@ -532,7 +532,7 @@ function toggleFinanceAddForm(skipReset) {
   if (skipReset) { f.classList.add('open'); return; }
   f.classList.toggle('open');
   if (f.classList.contains('open')) {
-    ['fi-merchant-input', 'fi-amount-input'].forEach(id => document.getElementById(id).value = '');
+    ['fi-merchant-input', 'fi-amount-input', 'fi-time-input'].forEach(id => document.getElementById(id).value = '');
     dpSet('fi-date-input', today());
     document.getElementById('fi-direction-input').value = 'debit';
     document.getElementById('fi-currency-input').value = 'SGD';
@@ -552,6 +552,7 @@ async function saveManualTransaction() {
     external_id: `manual-${Date.now()}`,
     bank: 'manual',
     txn_date: txnDate,
+    txn_time: document.getElementById('fi-time-input').value || null,
     amount,
     currency: document.getElementById('fi-currency-input').value,
     direction: document.getElementById('fi-direction-input').value,
