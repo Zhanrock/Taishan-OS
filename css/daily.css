@@ -162,6 +162,9 @@
 .di-time { font-family: var(--mono); font-size: 10px; color: var(--muted); display: flex; align-items: center; gap: 3px; }
 .di-time.now { color: var(--accent3); }
 .di-pri-label { font-family: var(--mono); font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.di-pri-high   { color: var(--accent2); }
+.di-pri-medium { color: var(--accent4); }
+.di-pri-low    { color: var(--success); }
 .di-auto-tag { font-family: var(--mono); font-size: 9px; padding: 1px 6px; border-radius: 3px; border: 1px solid rgba(124,106,255,0.3); color: var(--accent); background: rgba(124,106,255,0.06); letter-spacing: 0.05em; }
 .di-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
 .di-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 4px; border-radius: 4px; transition: color 0.2s; }

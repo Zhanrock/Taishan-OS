@@ -60,7 +60,7 @@
 <div class="app" id="main-app">
   <div class="header">
     <div class="header-left">
-      <div class="logo">&#9654; TAISHAN OS v2.9.11 CLOUD</div>
+      <div class="logo">&#9654; TAISHAN OS v2.9.12 CLOUD</div>
       <div class="greeting">Good <span id="timeGreet">morning</span>, <span id="userName">there</span></div>
       <div class="date-line" id="dateDisplay">&#8212;</div>
       <div class="sync-label"><span class="sync-dot" id="syncDot"></span><span id="syncLabel">&#8212;</span></div>
@@ -224,16 +224,19 @@
       </div>
     </div>
 
-    <!-- Filter bar — now includes Work filter -->
+    <!-- Filter bar — multi-select: click to toggle any combination of tags -->
     <div class="daily-filter-bar">
-      <button class="daily-filter-btn active" onclick="setDailyFilter('all',this)">All</button>
-      <button class="daily-filter-btn" onclick="setDailyFilter('pending',this)">Pending</button>
-      <button class="daily-filter-btn" onclick="setDailyFilter('done',this)">Done</button>
-      <button class="daily-filter-btn" onclick="setDailyFilter('high',this)">&#128308; High</button>
-      <button class="daily-filter-btn" onclick="setDailyFilter('work',this)">Work</button>
-      <button class="daily-filter-btn" onclick="setDailyFilter('study',this)">Study</button>
-      <button class="daily-filter-btn" onclick="setDailyFilter('health',this)">Health</button>
-      <button class="daily-filter-btn" onclick="setDailyFilter('leisure',this)">Leisure</button>
+      <button class="daily-filter-btn active" data-filter="all" onclick="toggleDailyFilter('all')">All</button>
+      <button class="daily-filter-btn" data-filter="pending" onclick="toggleDailyFilter('pending')">Pending</button>
+      <button class="daily-filter-btn" data-filter="done" onclick="toggleDailyFilter('done')">Done</button>
+      <button class="daily-filter-btn" data-filter="high" onclick="toggleDailyFilter('high')">&#128308; High</button>
+      <button class="daily-filter-btn" data-filter="study" onclick="toggleDailyFilter('study')">Study</button>
+      <button class="daily-filter-btn" data-filter="work" onclick="toggleDailyFilter('work')">Work</button>
+      <button class="daily-filter-btn" data-filter="health" onclick="toggleDailyFilter('health')">Health</button>
+      <button class="daily-filter-btn" data-filter="personal" onclick="toggleDailyFilter('personal')">Personal</button>
+      <button class="daily-filter-btn" data-filter="leisure" onclick="toggleDailyFilter('leisure')">Leisure</button>
+      <button class="daily-filter-btn" data-filter="chore" onclick="toggleDailyFilter('chore')">Chore</button>
+      <button class="daily-filter-btn" data-filter="other" onclick="toggleDailyFilter('other')">Other</button>
     </div>
 
     <div id="dailyList"><div class="empty-state"><div>&#9670;</div>Hit GENERATE MY DAY to auto-plan, or add tasks manually above.</div></div>

@@ -94,9 +94,11 @@ reviews (user_id, date, r1, r2, r3, r4, created_at)
 -- Daily life tasks (generated + manual). domain_id is set when the row came
 -- from a user_domains row; source_type/source_id are set instead when it
 -- came from a tasks or events row (deadline surfaced by the day generator —
--- see below). A row has at most one of the two set, never both.
-daily_tasks (user_id, title, cat, pri, time, done, date, note, domain_id,
-             source_type, source_id, created_at)
+-- see below). A row has at most one of the two set, never both. end_time is
+-- only populated for rows with a real end (a domain's time+duration, or an
+-- event happening today with its own end_time) — null otherwise.
+daily_tasks (user_id, title, cat, pri, time, end_time, done, date, note,
+             domain_id, source_type, source_id, created_at)
 
 -- Life domain profiles (the algorithm's input) + per-domain detail content
 user_domains (user_id, domain_id, title, cat, pri, time_slot, duration_mins,
@@ -226,7 +228,7 @@ create table daily_tasks (
   pri text default 'medium', time text, done boolean default false,
   date text not null, created_at timestamptz default now(),
   domain_id text, note text,
-  source_type text, source_id uuid
+  source_type text, source_id uuid, end_time text
 );
 
 create table user_domains (
@@ -343,6 +345,7 @@ create policy "Users own their data" on finance_sync_state for all using (auth.u
 
 | Version | What changed |
 |---|---|
+| v2.9.12 | Fixed the deadline-scoring feature shipped in v2.9.11: an event on a *future* day (not today) was being surfaced in today's plan at its own time-of-day, causing real time clashes with today's actual classes and flooding the plan with the whole week's timetable. Now only events happening *today* (any type) are guaranteed in with their real time; a future date only surfaces if it's an exam/deadline, with no time attached. Daily items now show an end time (domain duration, or an event's real end_time) alongside the start. Fixed a priority-vocabulary mismatch (`med` vs `medium`) that silently broke the priority color stripe on deadline-sourced items; the priority label itself is now color-coded. Daily Planner filters are now multi-select (toggle any combination) and include the previously-missing Personal/Chore/Other categories. |
 | v2.9.11 | Day generator now scores today's open `tasks` (with a `due` date) and upcoming `events` alongside domains, not domains alone — a deadline within 7 days competes on the same score scale as a domain; within 3 days it's guaranteed into the plan regardless of category caps. Completing a task-sourced item in the Daily Planner marks the real task done too. `daily_tasks` gained `source_type`/`source_id` to track which task/event a row came from. |
 | v2.9.10 | Task category dropdowns (add + edit) and `.tag-*` CSS were missing `project` and `career` — a `career` task (used by the careers-tracking hub project since 2026-09-08) or `project` task (used by seed data) rendered as an unstyled tag and got silently reset to `module` if edited through the UI. Both categories now render and edit correctly. |
 | v2.9.9 | Domains can now be archived/retired instead of only deleted (`user_domains.is_archived`) — excluded from day generation and the default domain list, but stays readable with its logs intact; restore or permanently delete from the archived view. Logging a progress-log entry for today now also records `last_done` for that domain, so the overdue-penalty scoring reflects the log people actually keep instead of only the separate generated daily-task checkbox. |

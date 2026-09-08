@@ -1,5 +1,14 @@
 // ── DAILY PLANNER + AUTO-GENERATOR ──
-let dailyFilter = 'all';
+// Multi-select filter tags. Empty set = no filter (show everything).
+// Within a group (status/priority/category) tags are OR'd; across groups AND'd —
+// so "Study" + "High" shows high-priority study items, while "Study" + "Work"
+// shows either.
+let dailyFilters = new Set();
+const DAILY_FILTER_GROUPS = {
+  status:   ['pending', 'done'],
+  priority: ['high'],
+  cat:      ['study', 'work', 'health', 'personal', 'leisure', 'chore', 'other'],
+};
 let domainManagerOpen = false;
 
 // ── DEFAULT DOMAINS ──
@@ -238,6 +247,10 @@ function buildDeadlineCandidates() {
   );
   const candidates = [];
 
+  // daily_tasks.pri uses the domain vocabulary (high/medium/low — see the
+  // manual-add #di-pri dropdown), not tasks.priority's high/med/low.
+  const normPri = p => p === 'med' ? 'medium' : (p || 'medium');
+
   (state.tasks || []).forEach(tk => {
     if (tk.done || !tk.due || existingSourceIds.has(String(tk.id))) return;
     const daysUntil = Math.ceil((new Date(tk.due) - new Date(t)) / 86400000);
@@ -245,7 +258,7 @@ function buildDeadlineCandidates() {
     candidates.push({
       id: 'task_' + tk.id, title: tk.name,
       cat: TASK_CAT_MAP[tk.category] || 'personal',
-      pri: tk.priority || 'med', time: null,
+      pri: normPri(tk.priority), time: null, endTime: null,
       note: tk.note || `Due ${tk.due}`,
       guaranteed: daysUntil <= 3,
       score: (tk.priority === 'high' ? 80 : tk.priority === 'low' ? 30 : 50) + Math.max(0, 7 - daysUntil) * 5,
@@ -257,13 +270,24 @@ function buildDeadlineCandidates() {
     if (!ev.date || existingSourceIds.has(String(ev.id))) return;
     const daysUntil = Math.ceil((new Date(ev.date) - new Date(t)) / 86400000);
     if (daysUntil < 0 || daysUntil > 7) return;
+    const isToday = daysUntil === 0;
+    // Today's calendar is a fact, not a suggestion — any event actually
+    // happening today (class, exam, meeting, whatever) is guaranteed in
+    // with its real time. A class/meeting on a *future* day isn't a
+    // deadline and doesn't belong in today's plan at all — only an
+    // upcoming exam/deadline is worth surfacing as a heads-up before it
+    // arrives (renderCountdowns() already does the passive version of
+    // this for every high-priority event, ≤14 days, on another tab).
+    if (!isToday && ev.type !== 'exam' && ev.type !== 'deadline') return;
     const isHigh = ev.type === 'exam' || ev.priority === 'high';
     candidates.push({
       id: 'event_' + ev.id, title: ev.title,
       cat: EVENT_TYPE_MAP[ev.type] || 'work',
-      pri: isHigh ? 'high' : (ev.priority === 'low' ? 'low' : 'med'), time: ev.time || null,
+      pri: isHigh ? 'high' : (ev.priority === 'low' ? 'low' : 'medium'),
+      time: isToday ? (ev.time || null) : null,
+      endTime: isToday ? (ev.end_time || null) : null,
       note: ev.note || (ev.type ? ev.type.toUpperCase() : ''),
-      guaranteed: daysUntil <= 3,
+      guaranteed: isToday || daysUntil <= 3,
       score: (isHigh ? 80 : 50) + Math.max(0, 7 - daysUntil) * 5,
       sourceType: 'event', sourceId: ev.id,
     });
@@ -272,10 +296,18 @@ function buildDeadlineCandidates() {
   return candidates;
 }
 
+function addMinutesToTime(time, mins) {
+  if (!time || !mins) return null;
+  const [h, m] = time.split(':').map(Number);
+  const total = ((h * 60 + m + mins) % 1440 + 1440) % 1440;
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
 function generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates) {
   const MAX_STUDY = 2, MAX_WORK = 3;
   const scoredDomains = activeDomains().map(d => ({
-    ...d, score: scoreDomain(d, lastDoneMap[d.id] || null, urgencyMap[d.id] ?? null)
+    ...d, endTime: addMinutesToTime(d.time, d.duration),
+    score: scoreDomain(d, lastDoneMap[d.id] || null, urgencyMap[d.id] ?? null)
   }));
   const guaranteed = (deadlineCandidates || []).filter(c => c.guaranteed);
   const competing  = (deadlineCandidates || []).filter(c => !c.guaranteed);
@@ -326,7 +358,7 @@ async function runDayGenerator() {
   const plan        = generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates);
   const rows = plan.map(d => ({
     user_id: currentUser.id, title: d.title, cat: d.cat, pri: d.pri,
-    time: d.time || null, done: false, date: today(),
+    time: d.time || null, end_time: d.endTime || null, done: false, date: today(),
     note: d.note || null,
     domain_id: d.sourceType ? null : d.id,
     source_type: d.sourceType || null,
@@ -572,11 +604,11 @@ function renderDaily() {
   const badge = document.getElementById('di-domain-count');
   if (badge) badge.textContent = activeDomains().length + ' domains';
 
-  let list = [...todayItems];
-  if (dailyFilter === 'pending') list = list.filter(t => !t.done);
-  else if (dailyFilter === 'done') list = list.filter(t => t.done);
-  else if (['study','work','health','personal','leisure','chore','other'].includes(dailyFilter)) list = list.filter(t => t.cat === dailyFilter);
-  else if (dailyFilter === 'high') list = list.filter(t => t.pri === 'high');
+  let list = todayItems.filter(dailyItemPassesFilters);
+  document.querySelectorAll('.daily-filter-btn').forEach(b => {
+    const f = b.dataset.filter;
+    b.classList.toggle('active', f === 'all' ? dailyFilters.size === 0 : dailyFilters.has(f));
+  });
 
   const PO = { high:0, medium:1, low:2 };
   list.sort((a,b) => {
@@ -588,7 +620,7 @@ function renderDaily() {
 
   const container = document.getElementById('dailyList');
   if (list.length === 0) {
-    container.innerHTML = `<div class="empty-state"><div>◈</div>${dailyFilter === 'all' ? 'Hit ▸ GENERATE MY DAY to auto-plan.' : 'No tasks match this filter.'}</div>`;
+    container.innerHTML = `<div class="empty-state"><div>◈</div>${dailyFilters.size === 0 ? 'Hit ▸ GENERATE MY DAY to auto-plan.' : 'No tasks match this filter.'}</div>`;
     checkAutoGenOffer(); return;
   }
   checkAutoGenOffer();
@@ -604,7 +636,7 @@ function dailyItemHTML(t) {
   const cc = DAILY_CATS[t.cat] || DAILY_CATS.other;
   const nowMins = new Date().getHours()*60 + new Date().getMinutes();
   const isNow = t.time && (() => { const [h,m] = t.time.split(':').map(Number); return Math.abs(nowMins-(h*60+m)) <= 30; })();
-  const timeStr = t.time  ? `<span class="di-time ${isNow?'now':''}">⏰ ${fmt12(t.time)}</span>` : '';
+  const timeStr = t.time  ? `<span class="di-time ${isNow?'now':''}">⏰ ${fmt12(t.time)}${t.end_time ? ' – ' + fmt12(t.end_time) : ''}</span>` : '';
   const noteStr = t.note  ? `<span class="di-note">${esc(t.note)}</span>` : '';
   const autoTag = t.domain_id ? `<span class="di-auto-tag">▸ AUTO</span>` : (t.source_type ? `<span class="di-auto-tag">▸ DEADLINE</span>` : '');
   const detailBtn = t.domain_id ? `<button class="dom-detail-link-btn" style="margin-top:4px" onclick="goToDomainsTab('${t.domain_id}')">▸ view details →</button>` : '';
@@ -615,7 +647,7 @@ function dailyItemHTML(t) {
       <div class="di-meta">
         <span class="di-cat ${cc.cls}">${cc.label}</span>
         ${timeStr}
-        <span class="di-pri-label">${t.pri}</span>
+        <span class="di-pri-label di-pri-${t.pri}">${t.pri}</span>
         ${autoTag}
       </div>
       ${noteStr}
@@ -634,11 +666,25 @@ function fmt12(t) {
 }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function setDailyFilter(f, btn) {
-  dailyFilter = f;
-  document.querySelectorAll('.daily-filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+function toggleDailyFilter(tag) {
+  if (tag === 'all') dailyFilters.clear();
+  else if (dailyFilters.has(tag)) dailyFilters.delete(tag);
+  else dailyFilters.add(tag);
   renderDaily();
+}
+
+function dailyItemPassesFilters(t) {
+  if (dailyFilters.size === 0) return true;
+  return Object.values(DAILY_FILTER_GROUPS).every(tags => {
+    const active = tags.filter(tag => dailyFilters.has(tag));
+    if (active.length === 0) return true;
+    return active.some(tag => {
+      if (tag === 'pending') return !t.done;
+      if (tag === 'done')    return t.done;
+      if (tag === 'high')    return t.pri === 'high';
+      return t.cat === tag;
+    });
+  });
 }
 
 async function addDailyTask() {
