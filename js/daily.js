@@ -258,7 +258,7 @@ function buildDeadlineCandidates() {
     candidates.push({
       id: 'task_' + tk.id, title: tk.name,
       cat: TASK_CAT_MAP[tk.category] || 'personal',
-      pri: normPri(tk.priority), time: null, endTime: null,
+      pri: normPri(tk.priority), time: null, endTime: null, duration: 45,
       note: tk.note || `Due ${tk.due}`,
       guaranteed: daysUntil <= 3,
       score: (tk.priority === 'high' ? 80 : tk.priority === 'low' ? 30 : 50) + Math.max(0, 7 - daysUntil) * 5,
@@ -286,6 +286,7 @@ function buildDeadlineCandidates() {
       pri: isHigh ? 'high' : (ev.priority === 'low' ? 'low' : 'medium'),
       time: isToday ? (ev.time || null) : null,
       endTime: isToday ? (ev.end_time || null) : null,
+      duration: 60,
       note: ev.note || (ev.type ? ev.type.toUpperCase() : ''),
       guaranteed: isToday || daysUntil <= 3,
       score: (isHigh ? 80 : 50) + Math.max(0, 7 - daysUntil) * 5,
@@ -303,15 +304,77 @@ function addMinutesToTime(time, mins) {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
+function timeToMinutes(t) {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+function minutesToTime(mins) {
+  mins = ((mins % 1440) + 1440) % 1440;
+  return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+}
+
+const MIN_GAP_MINUTES = 20;
+
+// Free windows between today's timed blocks, bounded by the morning/night
+// anchors — the day's natural start and end. Anchors are found by tag, not
+// a hardcoded id, so this still works if they're ever renamed.
+function computeGaps(timedBlocks) {
+  const anchors = timedBlocks.filter(d => d.tags && d.tags.includes('anchor') && d.time);
+  const morning = anchors.find(a => timeToMinutes(a.time) < 720);
+  const night   = anchors.find(a => timeToMinutes(a.time) >= 720);
+  if (!morning || !night) return [];
+
+  const dayEnd = timeToMinutes(night.time);
+  const sorted = timedBlocks.filter(d => d.time)
+    .slice().sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
+
+  const gaps = [];
+  let cursor = timeToMinutes(morning.endTime || morning.time);
+  for (const b of sorted) {
+    const start = timeToMinutes(b.time);
+    if (start - cursor >= MIN_GAP_MINUTES) gaps.push({ start: minutesToTime(cursor), minutes: start - cursor });
+    cursor = Math.max(cursor, timeToMinutes(b.endTime || b.time));
+  }
+  if (dayEnd - cursor >= MIN_GAP_MINUTES) gaps.push({ start: minutesToTime(cursor), minutes: dayEnd - cursor });
+  return gaps;
+}
+
+// Picks which module a gap-filled "Module Reading" block is actually about:
+// the nearest class-type event (±3 days) whose title starts with a module
+// code (AB1234, ML004, ...). No match (e.g. a weekend) falls back to a
+// generic title at the call site.
+function resolveModuleReadingTarget() {
+  const codeRe = /^[A-Z]{2,4}\d{3,4}/;
+  const t = today();
+  const near = (state.events || [])
+    .filter(ev => ev.type === 'class' && ev.date && codeRe.test(ev.title || ''))
+    .map(ev => ({ ev, dayDiff: Math.abs(Math.ceil((new Date(ev.date) - new Date(t)) / 86400000)) }))
+    .filter(c => c.dayDiff <= 3)
+    .sort((a, b) => a.dayDiff - b.dayDiff)[0];
+  if (!near) return null;
+  return { code: near.ev.title.match(codeRe)[0], eventTitle: near.ev.title };
+}
+
 function generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates) {
   const MAX_STUDY = 2, MAX_WORK = 3;
-  const scoredDomains = activeDomains().map(d => ({
+  const allDomains = activeDomains().map(d => ({
     ...d, endTime: addMinutesToTime(d.time, d.duration),
     score: scoreDomain(d, lastDoneMap[d.id] || null, urgencyMap[d.id] ?? null)
   }));
+  // A domain with no time_slot is "flexible" — it doesn't compete for a
+  // fixed clock position, it fills free gaps between fixed/guaranteed
+  // blocks instead (see the gap-fill pass below).
+  const fixedDomains = allDomains.filter(d => d.time);
+  const flexDomains  = allDomains.filter(d => !d.time);
+
   const guaranteed = (deadlineCandidates || []).filter(c => c.guaranteed);
   const competing  = (deadlineCandidates || []).filter(c => !c.guaranteed);
-  const scored = [...scoredDomains, ...competing].sort((a, b) => b.score - a.score);
+  // Untimed deadline candidates (a task due in 5 days, a heads-up for an
+  // exam next week) have nowhere fixed to go either — they compete for
+  // gaps the same way flexible domains do, instead of floating in the
+  // list with no time at all.
+  const flexPool = [...flexDomains, ...competing].sort((a, b) => b.score - a.score);
+  const scored = fixedDomains.sort((a, b) => b.score - a.score);
 
   const selected = [];
   let studyCount = 0, workCount = 0, physCount = 0, leisureCount = 0;
@@ -345,6 +408,31 @@ function generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates) {
   if (leisureCount === 0) {
     const l = scored.find(d => d.cat === 'leisure' && !selected.find(s => s.id === d.id));
     if (l) selected.push(l);
+  }
+
+  // Gap-fill: one candidate per free window, sized to its own duration
+  // (never stretched to fill the whole gap), still respecting the study/
+  // work caps above so a flexible filler can't over-schedule the day.
+  const gaps = computeGaps(selected.filter(d => d.time));
+  for (const gap of gaps) {
+    const candidate = flexPool.find(c =>
+      !selected.find(s => s.id === c.id) &&
+      !(c.cat === 'study' && studyCount >= MAX_STUDY) &&
+      !(c.cat === 'work'  && workCount  >= MAX_WORK)
+    );
+    if (!candidate) continue;
+    const duration = Math.min(candidate.duration || 45, gap.minutes);
+    const filled = { ...candidate, time: gap.start, endTime: addMinutesToTime(gap.start, duration) };
+    if (filled.id === 'module_reading') {
+      const target = resolveModuleReadingTarget();
+      if (target) {
+        filled.title = `Module Reading — ${target.code}`;
+        filled.note = `Lecture material for ${target.eventTitle}`;
+      }
+    }
+    selected.push(filled);
+    if (filled.cat === 'study') studyCount++;
+    if (filled.cat === 'work')  workCount++;
   }
 
   selected.sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
@@ -466,6 +554,7 @@ function renderDomainManager() {
               <span style="color:${catColors[d.cat]||'var(--muted)'}; font-size:10px; font-family:var(--mono);">${d.cat.toUpperCase()}</span>
               <span class="dm-pill">every ${d.freqDays}d</span>
               <span class="dm-pill">priority ${d.basePriority}/10</span>
+              ${d.time ? '' : '<span class="dm-pill">FLEXIBLE — fills gaps</span>'}
               ${d.tags && d.tags.includes('anchor') ? '<span class="dm-pill anchor">ANCHOR</span>' : ''}
             </div>
             ${d.note ? `<div class="dm-note">${esc(d.note)}</div>` : ''}
@@ -532,6 +621,10 @@ function renderDomainManager() {
           <input class="form-input" id="dm-new-dur" type="number" min="5" max="480" value="45" style="width:100%">
         </div>
       </div>
+      <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:10px;color:var(--muted);font-family:var(--mono)">
+        <input type="checkbox" id="dm-new-flexible" onchange="document.getElementById('dm-new-time').disabled=this.checked">
+        Flexible — fills free gaps between fixed blocks instead of a fixed time
+      </label>
       <input class="form-input" id="dm-new-note" placeholder="What you do during this session (optional)" style="width:100%;margin-top:8px">
       <div class="form-actions" style="margin-top:10px">
         <button class="btn-save" onclick="addNewDomain()">+ ADD TO ALGORITHM</button>
@@ -548,7 +641,7 @@ async function addNewDomain() {
     id, title,
     cat:                 document.getElementById('dm-new-cat').value,
     pri:                 'medium',
-    time:                document.getElementById('dm-new-time').value || '16:00',
+    time:                document.getElementById('dm-new-flexible').checked ? null : (document.getElementById('dm-new-time').value || '16:00'),
     duration:            parseInt(document.getElementById('dm-new-dur').value) || 45,
     freqDays:            parseInt(document.getElementById('dm-new-freq').value) || 2,
     basePriority:        parseInt(document.getElementById('dm-new-pri').value) || 5,

@@ -237,7 +237,10 @@ create table user_domains (
   user_id uuid references auth.users(id) on delete cascade,
   domain_id text not null, title text not null,
   cat text default 'other', pri text default 'medium',
-  time_slot text, duration_mins int default 45,
+  time_slot text, -- null = "flexible": fills free gaps between fixed/
+                  -- guaranteed blocks in the generated day instead of a
+                  -- fixed clock position (js/daily.js: computeGaps())
+  duration_mins int default 45,
   freq_days int default 2, base_priority int default 5,
   urgency_deadline_days int default 7,
   tags text[] default '{}', note text default '',
@@ -347,6 +350,7 @@ create policy "Users own their data" on finance_sync_state for all using (auth.u
 
 | Version | What changed |
 |---|---|
+| v2.9.15 | Day generator can now fill free time between fixed/guaranteed blocks: a domain with no time_slot ("flexible") or an untimed deadline candidate (a task due in 4-7 days, an upcoming exam heads-up) competes to fill each gap ≥20min, sized to its own duration, still respecting the study/work caps. New flexible domain "Module Reading" resolves which module to read based on the nearest class event within 3 days. `research_p1` converted to flexible. Domain Manager's add-form gained a "Flexible" checkbox. |
 | v2.9.14 | Manual Finance transactions can now set a time (optional). Daily Planner's "add task" priority dropdown used a black square for Medium instead of the yellow circle Tasks uses -- now consistent. |
 | v2.9.13 | Finance transactions now capture the actual transaction time, not just the date -- the bank alert emails already carried it (`Date & Time: ...`), it was parsed and discarded. All 4 live parsers (DBS card/PayNow/NETS Scan & Pay, Kasikorn) updated; `finance_transactions.txn_time` added. Same-day transactions are now sorted chronologically instead of arbitrarily, and the Finance tab shows the time next to the date. |
 | v2.9.12 | Fixed the deadline-scoring feature shipped in v2.9.11: an event on a *future* day (not today) was being surfaced in today's plan at its own time-of-day, causing real time clashes with today's actual classes and flooding the plan with the whole week's timetable. Now only events happening *today* (any type) are guaranteed in with their real time; a future date only surfaces if it's an exam/deadline, with no time attached. Daily items now show an end time (domain duration, or an event's real end_time) alongside the start. Fixed a priority-vocabulary mismatch (`med` vs `medium`) that silently broke the priority color stripe on deadline-sourced items; the priority label itself is now color-coded. Daily Planner filters are now multi-select (toggle any combination) and include the previously-missing Personal/Chore/Other categories. |
