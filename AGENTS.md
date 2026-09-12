@@ -24,12 +24,6 @@ in order from `index.html`; there are no modules or imports.
 - **Bump the version.** Header version and the Version History table at the
   bottom of README.md, together, in the same commit.
 
-## Known drift (fix when touching finance)
-
-`js/data.js` queries `finance_unmatched` and `finance_recurring`, and selects
-`last_run_at` from `finance_sync_state`. None are in the README SQL. The
-header says v2.9.5 but history goes to v2.9.7.
-
 ## Maintaining this file
 
 Update this file in the same commit as the change that makes it wrong.

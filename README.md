@@ -2,7 +2,7 @@
 
 > *Your personal operating system. Cloud-synced. Algorithm-driven. Built for a life with too much going on.*
 
-**v2.9.9** · [Live →](https://zhanrock.github.io/Taishan-OS/)
+**v2.9.16** · [Live →](https://zhanrock.github.io/Taishan-OS/)
 
 ---
 
@@ -350,6 +350,7 @@ create policy "Users own their data" on finance_sync_state for all using (auth.u
 
 | Version | What changed |
 |---|---|
+| v2.9.16 | Header version had drifted behind the Version History table again (last said v2.9.9 while history already ran to v2.9.15) -- corrected to match. Verified directly against live Supabase that `finance_unmatched`, `finance_recurring`, and `finance_sync_state.last_run_at` (flagged as missing from the README SQL block since v2.9.5) were already added in v2.9.8's schema-doc fix and match the live schema column-for-column, with RLS enabled and an owner-scoped policy on all four finance tables -- no vulnerability found, this was a stale doc note, not a live gap. |
 | v2.9.15 | Day generator can now fill free time between fixed/guaranteed blocks: a domain with no time_slot ("flexible") or an untimed deadline candidate (a task due in 4-7 days, an upcoming exam heads-up) competes to fill each gap ≥20min, sized to its own duration, still respecting the study/work caps. New flexible domain "Module Reading" resolves which module to read based on the nearest class event within 3 days. `research_p1` converted to flexible. Domain Manager's add-form gained a "Flexible" checkbox. |
 | v2.9.14 | Manual Finance transactions can now set a time (optional). Daily Planner's "add task" priority dropdown used a black square for Medium instead of the yellow circle Tasks uses -- now consistent. |
 | v2.9.13 | Finance transactions now capture the actual transaction time, not just the date -- the bank alert emails already carried it (`Date & Time: ...`), it was parsed and discarded. All 4 live parsers (DBS card/PayNow/NETS Scan & Pay, Kasikorn) updated; `finance_transactions.txn_time` added. Same-day transactions are now sorted chronologically instead of arbitrarily, and the Finance tab shows the time next to the date. |
