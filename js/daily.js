@@ -416,10 +416,13 @@ function generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates) {
   }
 
   // Gap-fill: pack each free window with as many flexible candidates as fit,
-  // one after another (each sized to its own duration, never stretched),
-  // still respecting the study/work caps above so fillers can't over-
-  // schedule the day. A large gap (e.g. a weekend with no fixed blocks)
-  // keeps drawing from flexPool until it runs out of candidates or space.
+  // one after another (each sized to its own duration, never stretched).
+  // This runs its own study/work quota, separate from the main loop's —
+  // otherwise evening-fixed domains (Cybersecurity Practice, Finance, ...)
+  // could exhaust the whole day's study/work cap before gap-fill ever gets
+  // a turn, leaving a large daytime gap (no classes, no fixed blocks yet)
+  // completely unfillable even though Module Reading et al. are available.
+  let gapStudyCount = 0, gapWorkCount = 0;
   const gaps = computeGaps(selected.filter(d => d.time));
   for (const gap of gaps) {
     let cursor = gap.start;
@@ -427,8 +430,8 @@ function generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates) {
     while (remaining >= MIN_GAP_MINUTES) {
       const candidate = flexPool.find(c =>
         !selected.find(s => s.id === c.id) &&
-        !(c.cat === 'study' && studyCount >= MAX_STUDY) &&
-        !(c.cat === 'work'  && workCount  >= MAX_WORK) &&
+        !(c.cat === 'study' && gapStudyCount >= MAX_STUDY) &&
+        !(c.cat === 'work'  && gapWorkCount  >= MAX_WORK) &&
         (c.duration || 45) <= remaining
       );
       if (!candidate) break;
@@ -442,8 +445,8 @@ function generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates) {
         }
       }
       selected.push(filled);
-      if (filled.cat === 'study') studyCount++;
-      if (filled.cat === 'work')  workCount++;
+      if (filled.cat === 'study') gapStudyCount++;
+      if (filled.cat === 'work')  gapWorkCount++;
       cursor = addMinutesToTime(cursor, duration);
       remaining -= duration;
     }
