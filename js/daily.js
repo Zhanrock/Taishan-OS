@@ -356,7 +356,7 @@ function resolveModuleReadingTarget() {
 }
 
 function generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates) {
-  const MAX_STUDY = 2, MAX_WORK = 3;
+  const MAX_STUDY = 3, MAX_WORK = 3;
   const allDomains = activeDomains().map(d => ({
     ...d, endTime: addMinutesToTime(d.time, d.duration),
     score: scoreDomain(d, lastDoneMap[d.id] || null, urgencyMap[d.id] ?? null)
@@ -410,29 +410,38 @@ function generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates) {
     if (l) selected.push(l);
   }
 
-  // Gap-fill: one candidate per free window, sized to its own duration
-  // (never stretched to fill the whole gap), still respecting the study/
-  // work caps above so a flexible filler can't over-schedule the day.
+  // Gap-fill: pack each free window with as many flexible candidates as fit,
+  // one after another (each sized to its own duration, never stretched),
+  // still respecting the study/work caps above so fillers can't over-
+  // schedule the day. A large gap (e.g. a weekend with no fixed blocks)
+  // keeps drawing from flexPool until it runs out of candidates or space.
   const gaps = computeGaps(selected.filter(d => d.time));
   for (const gap of gaps) {
-    const candidate = flexPool.find(c =>
-      !selected.find(s => s.id === c.id) &&
-      !(c.cat === 'study' && studyCount >= MAX_STUDY) &&
-      !(c.cat === 'work'  && workCount  >= MAX_WORK)
-    );
-    if (!candidate) continue;
-    const duration = Math.min(candidate.duration || 45, gap.minutes);
-    const filled = { ...candidate, time: gap.start, endTime: addMinutesToTime(gap.start, duration) };
-    if (filled.id === 'module_reading') {
-      const target = resolveModuleReadingTarget();
-      if (target) {
-        filled.title = `Module Reading — ${target.code}`;
-        filled.note = `Lecture material for ${target.eventTitle}`;
+    let cursor = gap.start;
+    let remaining = gap.minutes;
+    while (remaining >= MIN_GAP_MINUTES) {
+      const candidate = flexPool.find(c =>
+        !selected.find(s => s.id === c.id) &&
+        !(c.cat === 'study' && studyCount >= MAX_STUDY) &&
+        !(c.cat === 'work'  && workCount  >= MAX_WORK) &&
+        (c.duration || 45) <= remaining
+      );
+      if (!candidate) break;
+      const duration = Math.min(candidate.duration || 45, remaining);
+      const filled = { ...candidate, time: cursor, endTime: addMinutesToTime(cursor, duration) };
+      if (filled.id === 'module_reading') {
+        const target = resolveModuleReadingTarget();
+        if (target) {
+          filled.title = `Module Reading — ${target.code}`;
+          filled.note = `Lecture material for ${target.eventTitle}`;
+        }
       }
+      selected.push(filled);
+      if (filled.cat === 'study') studyCount++;
+      if (filled.cat === 'work')  workCount++;
+      cursor = addMinutesToTime(cursor, duration);
+      remaining -= duration;
     }
-    selected.push(filled);
-    if (filled.cat === 'study') studyCount++;
-    if (filled.cat === 'work')  workCount++;
   }
 
   selected.sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
