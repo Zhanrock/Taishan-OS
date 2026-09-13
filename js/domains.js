@@ -23,12 +23,18 @@ let domainLibShowArchived = false;
 // Tracks which single entry/item/block currently shows an inline edit form:
 // { blockIdx, kind: 'progress'|'checklist'|'note'|'link'|'program', idx? }
 let domEditTarget = null;
+// Whether the domain's own scheduling stats (priority, frequency, time,
+// duration, category, ...) are showing their edit form instead of the
+// summary pills — separate from domEditTarget, which is for detail_content
+// blocks, not the domain row itself.
+let domStatsEditOpen = false;
 
 // ── NAVIGATION ──
 
 function goToDomainsTab(domainId) {
   openDomainId = domainId || null;
   domEditTarget = null;
+  domStatsEditOpen = false;
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   const panel = document.getElementById('panel-domains');
@@ -41,6 +47,7 @@ function goToDomainsTab(domainId) {
 function closeDomainDetail() {
   openDomainId = null;
   domEditTarget = null;
+  domStatsEditOpen = false;
   renderDomainLibrary();
 }
 
@@ -264,13 +271,20 @@ function renderDomainDetailHTML(id) {
   return `
     <button class="dom-back-btn" onclick="closeDomainDetail()">← All Domains</button>
     <div class="dom-detail-header">
-      <div class="dom-detail-title">${esc(d.title)}</div>
-      <div class="dom-detail-meta">
-        <span class="di-cat ${cc.cls}">${cc.label}</span>
-        <span class="dm-pill">every ${d.freqDays}d</span>
-        <span class="dm-pill">priority ${d.basePriority}/10</span>
-      </div>
-      ${d.note ? `<div class="dom-detail-note">${esc(d.note)}</div>` : ''}
+      ${domStatsEditOpen ? renderDomainStatsEditForm(d) : `
+        <div class="dom-detail-title-row">
+          <div class="dom-detail-title">${esc(d.title)}</div>
+          <button class="dom-block-edit" onclick="openDomainStatsEdit()" title="Edit priority, frequency, time, category...">✎</button>
+        </div>
+        <div class="dom-detail-meta">
+          <span class="di-cat ${cc.cls}">${cc.label}</span>
+          <span class="dm-pill">${esc(d.pri)}</span>
+          <span class="dm-pill">every ${d.freqDays}d</span>
+          <span class="dm-pill">priority ${d.basePriority}/10</span>
+          ${d.time ? `<span class="dm-pill">${fmt12(d.time)} · ${d.duration}min</span>` : '<span class="dm-pill">FLEXIBLE — fills gaps</span>'}
+        </div>
+        ${d.note ? `<div class="dom-detail-note">${esc(d.note)}</div>` : ''}
+      `}
     </div>
     <div class="dom-blocks">
       ${blocks.length
@@ -279,6 +293,109 @@ function renderDomainDetailHTML(id) {
     </div>
     ${renderAddBlockForm(d)}
   `;
+}
+
+// ── EDIT DOMAIN STATS (priority, frequency, time, duration, category...) ──
+
+function renderDomainStatsEditForm(d) {
+  const isAnchor = d.tags && d.tags.includes('anchor');
+  const cats = ['study', 'work', 'health', 'personal', 'leisure', 'chore', 'other'];
+  return `
+    <div class="dm-add-title">▸ Edit "${esc(d.title)}"</div>
+    <div class="dm-add-row" style="margin-top:8px">
+      <input class="form-input" id="dom-edit-title" value="${escAttr(d.title)}" placeholder="Title" style="flex:2;min-width:140px">
+      <select class="form-select" id="dom-edit-cat" ${isAnchor ? 'disabled title="Anchor domains keep their category"' : ''}>
+        ${cats.map(c => `<option value="${c}" ${d.cat === c ? 'selected' : ''}>${c[0].toUpperCase()}${c.slice(1)}</option>`).join('')}
+      </select>
+      <select class="form-select" id="dom-edit-pri">
+        ${['high', 'medium', 'low'].map(p => `<option value="${p}" ${d.pri === p ? 'selected' : ''}>${p[0].toUpperCase()}${p.slice(1)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="dm-add-row" style="margin-top:8px">
+      <div style="display:flex;flex-direction:column;gap:3px;flex:1">
+        <label style="font-size:9px;color:var(--muted);font-family:var(--mono)">EVERY X DAYS</label>
+        <input class="form-input" id="dom-edit-freq" type="number" min="1" max="30" value="${d.freqDays}">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;flex:1">
+        <label style="font-size:9px;color:var(--muted);font-family:var(--mono)">PRIORITY (1–10)</label>
+        <input class="form-input" id="dom-edit-basepri" type="number" min="1" max="10" value="${d.basePriority}">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;flex:1">
+        <label style="font-size:9px;color:var(--muted);font-family:var(--mono)">TIME SLOT</label>
+        <input class="form-input" id="dom-edit-time" type="time" value="${d.time || ''}" ${!d.time ? 'disabled' : ''}>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;flex:1">
+        <label style="font-size:9px;color:var(--muted);font-family:var(--mono)">DURATION (min)</label>
+        <input class="form-input" id="dom-edit-dur" type="number" min="5" max="480" value="${d.duration}">
+      </div>
+    </div>
+    ${isAnchor ? '' : `
+      <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:10px;color:var(--muted);font-family:var(--mono)">
+        <input type="checkbox" id="dom-edit-flexible" ${!d.time ? 'checked' : ''} onchange="document.getElementById('dom-edit-time').disabled=this.checked">
+        Flexible — fills free gaps between fixed blocks instead of a fixed time
+      </label>`}
+    <div style="display:flex;flex-direction:column;gap:3px;margin-top:8px;max-width:160px">
+      <label style="font-size:9px;color:var(--muted);font-family:var(--mono)">URGENCY DEADLINE DAYS</label>
+      <input class="form-input" id="dom-edit-urgency" type="number" min="1" max="30" value="${d.urgencyDeadlineDays || 7}">
+    </div>
+    <input class="form-input" id="dom-edit-note" placeholder="What you do during this session (optional)" value="${escAttr(d.note || '')}" style="width:100%;margin-top:8px">
+    <div class="form-actions" style="margin-top:10px">
+      <button class="btn-cancel" onclick="cancelDomainStatsEdit()">Cancel</button>
+      <button class="btn-save" onclick="submitDomainStatsEdit('${d.id}')">SAVE</button>
+    </div>`;
+}
+
+function openDomainStatsEdit() {
+  domStatsEditOpen = true;
+  renderDomainLibrary();
+}
+
+function cancelDomainStatsEdit() {
+  domStatsEditOpen = false;
+  renderDomainLibrary();
+}
+
+async function submitDomainStatsEdit(domainId) {
+  const d = LIFE_DOMAINS.find(x => x.id === domainId);
+  if (!d) return;
+  const isAnchor = d.tags && d.tags.includes('anchor');
+  const title = document.getElementById('dom-edit-title').value.trim();
+  if (!title) { notify('⚠ Error', 'Title required', 'var(--accent2)'); return; }
+
+  const flexibleEl = document.getElementById('dom-edit-flexible');
+  const timeEl = document.getElementById('dom-edit-time');
+  const wantsFlexible = !isAnchor && flexibleEl && flexibleEl.checked;
+  if (isAnchor && !timeEl.value) { notify('⚠ Error', 'Anchor domains need a fixed time — they mark the start and end of the day for the generator', 'var(--accent2)'); return; }
+
+  const updates = {
+    title,
+    cat: isAnchor ? d.cat : document.getElementById('dom-edit-cat').value,
+    pri: document.getElementById('dom-edit-pri').value,
+    time: wantsFlexible ? null : (timeEl.value || d.time),
+    duration: parseInt(document.getElementById('dom-edit-dur').value) || d.duration,
+    freqDays: parseInt(document.getElementById('dom-edit-freq').value) || d.freqDays,
+    basePriority: parseInt(document.getElementById('dom-edit-basepri').value) || d.basePriority,
+    urgencyDeadlineDays: parseInt(document.getElementById('dom-edit-urgency').value) || 7,
+    note: document.getElementById('dom-edit-note').value.trim(),
+  };
+
+  if (!d._db_id) { notify('⚠ Error', 'Domain not synced yet — try again shortly', 'var(--accent2)'); return; }
+  setSyncStatus('syncing');
+  const { error } = await db.from('user_domains').update({
+    title: updates.title, cat: updates.cat, pri: updates.pri,
+    time_slot: updates.time, duration_mins: updates.duration,
+    freq_days: updates.freqDays, base_priority: updates.basePriority,
+    urgency_deadline_days: updates.urgencyDeadlineDays, note: updates.note,
+  }).eq('id', d._db_id);
+  if (error) { notify('⚠ Error', 'Could not save changes', 'var(--danger)'); setSyncStatus('error'); return; }
+
+  Object.assign(d, updates);
+  setSyncStatus('synced');
+  domStatsEditOpen = false;
+  renderDomainLibrary();
+  const badge = document.getElementById('di-domain-count');
+  if (badge) badge.textContent = activeDomains().length + ' domains';
+  notify('✓ Domain updated', d.title, 'var(--accent)');
 }
 
 function renderDomainBlock(d, b, i) {

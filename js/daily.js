@@ -31,8 +31,8 @@ let domainManagerOpen = false;
 // }
 
 const DEFAULT_DOMAINS = [
-  { domain_id:'morning_anchor',  title:'Morning Anchor',                  cat:'personal', pri:'high',   time_slot:'07:00', duration_mins:15,  freq_days:1, base_priority:9,  urgency_deadline_days:7,  tags:['habit','anchor'],      note:'Water → wash face → review ONE task for today' },
-  { domain_id:'night_protocol',  title:'Night Protocol',                  cat:'personal', pri:'high',   time_slot:'23:00', duration_mins:15,  freq_days:1, base_priority:9,  urgency_deadline_days:7,  tags:['habit','anchor'],      note:"Write tomorrow's ONE task → phone away → prep bag" },
+  { domain_id:'morning_anchor',  title:'Morning Anchor',                  cat:'personal', pri:'high',   time_slot:'07:00', duration_mins:15,  freq_days:1, base_priority:9,  urgency_deadline_days:7,  tags:['habit','anchor'],      note:'Just the clock anchor for today\'s plan — the actual routine (Morning Card) and streak (Wake Up / Morning Routine) live in the Schedule and Streaks tabs.' },
+  { domain_id:'night_protocol',  title:'Night Protocol',                  cat:'personal', pri:'high',   time_slot:'23:00', duration_mins:15,  freq_days:1, base_priority:9,  urgency_deadline_days:7,  tags:['habit','anchor'],      note:'Just the clock anchor for today\'s plan — the actual checklist lives in the Schedule tab\'s Night Protocol.' },
   { domain_id:'work_primary',    title:'Primary Job / Internship',        cat:'work',     pri:'high',   time_slot:'09:00', duration_mins:480, freq_days:1, base_priority:10, urgency_deadline_days:14, tags:['career'],              note:'Your main job or internship. Edit this in the Domains panel.' },
   { domain_id:'research',        title:'Research Project',                cat:'work',     pri:'high',   time_slot:'19:00', duration_mins:60,  freq_days:2, base_priority:8,  urgency_deadline_days:7,  tags:['research','career'],   note:'Describe your research thread here.' },
   { domain_id:'part_time_role',  title:'Part-Time / Assistant Role',      cat:'work',     pri:'medium', time_slot:'18:00', duration_mins:90,  freq_days:3, base_priority:7,  urgency_deadline_days:7,  tags:['career'],              note:'Any paid part-time work — pay rate, hours, supervisor.' },
@@ -386,12 +386,20 @@ function generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates) {
   const flexPool = [...flexDomains, ...competing].sort((a, b) => b.score - a.score);
   const scored = fixedDomains.sort((a, b) => b.score - a.score);
 
+  // A guaranteed item already carrying a real time (an event actually
+  // happening today) keeps it as-is. One with no time (a task due soon, an
+  // upcoming exam/deadline heads-up) still bypasses every cap below, same
+  // reasoning as anchors — a due date doesn't care how many study blocks
+  // are already scheduled — but it also gets first claim on gap-fill space
+  // below, same as everything else that lands in today's plan, instead of
+  // floating as a no-time reminder when a slot was actually available.
+  const guaranteedTimed   = guaranteed.filter(d => d.time);
+  const guaranteedUntimed = guaranteed.filter(d => !d.time).sort((a, b) => b.score - a.score);
+
   const selected = [];
   let studyCount = 0, workCount = 0, physCount = 0, leisureCount = 0;
 
-  // Deadlines within 3 days bypass every cap below, same reasoning as anchors —
-  // a due date doesn't care how many study blocks are already scheduled.
-  guaranteed.forEach(d => { if (!selected.find(s => s.id === d.id)) selected.push(d); });
+  guaranteedTimed.forEach(d => { if (!selected.find(s => s.id === d.id)) selected.push(d); });
 
   // Anchors always first
   scored.filter(d => d.tags && d.tags.includes('anchor'))
@@ -425,27 +433,34 @@ function generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates) {
     if (l) selected.push(l);
   }
 
-  // Gap-fill: pack each free window with as many flexible candidates as fit,
-  // one after another (each sized to its own duration, never stretched). No
+  // Gap-fill: pack each free window with as many candidates as fit, one
+  // after another (each sized to its own duration, never stretched). No
   // category cap here — gap-fill only spends time nothing else claimed, so
-  // the study/work balance the main loop protects isn't at stake; it just
-  // keeps drawing from flexPool until a window runs out of space or
-  // candidates. Module Reading is the one repeatable item: instead of a
-  // single nearest-module block, it can fill one slot per upcoming module
-  // (resolveModuleReadingTargets), so a free day can carry reading for more
-  // than one class.
+  // the study/work balance the main loop protects isn't at stake. A
+  // guaranteed-but-untimed deadline (guaranteedUntimed) always gets first
+  // claim on a gap over anything in flexPool — it's forced into the plan
+  // either way, so if a slot exists it should land on the clock instead of
+  // showing as a bare no-time reminder. Module Reading is the one
+  // repeatable flexPool item: instead of a single nearest-module block, it
+  // can fill one slot per upcoming module (resolveModuleReadingTargets), so
+  // a free day can carry reading for more than one class.
   const moduleTargets = resolveModuleReadingTargets();
   let moduleReadingUsed = 0;
+  const guaranteedQueue = [...guaranteedUntimed];
   const gaps = computeGaps(selected.filter(d => d.time));
   for (const gap of gaps) {
     let cursor = gap.start;
     let remaining = gap.minutes;
     while (remaining >= MIN_GAP_MINUTES) {
-      const candidate = flexPool.find(c => {
-        if ((c.duration || 45) > remaining) return false;
-        if (c.id === 'module_reading') return moduleReadingUsed < moduleTargets.length;
-        return !selected.find(s => s.id === c.id);
-      });
+      let candidate = guaranteedQueue.find(c => (c.duration || 45) <= remaining);
+      const fromGuaranteed = !!candidate;
+      if (!candidate) {
+        candidate = flexPool.find(c => {
+          if ((c.duration || 45) > remaining) return false;
+          if (c.id === 'module_reading') return moduleReadingUsed < moduleTargets.length;
+          return !selected.find(s => s.id === c.id);
+        });
+      }
       if (!candidate) break;
       const duration = Math.min(candidate.duration || 45, remaining);
       const filled = { ...candidate, time: cursor, endTime: addMinutesToTime(cursor, duration) };
@@ -456,10 +471,16 @@ function generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates) {
         moduleReadingUsed++;
       }
       selected.push(filled);
+      if (fromGuaranteed) guaranteedQueue.splice(guaranteedQueue.indexOf(candidate), 1);
       cursor = addMinutesToTime(cursor, duration);
       remaining -= duration;
     }
   }
+
+  // Anything guaranteed that never found a slot (gaps ran out before it did)
+  // still has to be in the plan — it just falls back to a bare no-time
+  // reminder, same as before this change, instead of being dropped.
+  guaranteedQueue.forEach(d => { if (!selected.find(s => s.id === d.id)) selected.push(d); });
 
   selected.sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
   return selected;
