@@ -339,20 +339,30 @@ function computeGaps(timedBlocks) {
   return gaps;
 }
 
-// Picks which module a gap-filled "Module Reading" block is actually about:
-// the nearest class-type event (±3 days) whose title starts with a module
-// code (AB1234, ML004, ...). No match (e.g. a weekend) falls back to a
-// generic title at the call site.
-function resolveModuleReadingTarget() {
+// Picks which modules a gap-filled "Module Reading" block can be about: every
+// class-type event (±3 days) whose title starts with a module code (AB1234,
+// ML004, ...), nearest first, deduped so each module appears once. Lets
+// gap-fill place one Module Reading block per upcoming module instead of
+// always the single nearest one. No match (e.g. a weekend with nothing
+// within 3 days) returns an empty list, and gap-fill just skips the slot.
+function resolveModuleReadingTargets(limit = 3) {
   const codeRe = /^[A-Z]{2,4}\d{3,4}/;
   const t = today();
-  const near = (state.events || [])
+  const seen = new Set();
+  const targets = [];
+  (state.events || [])
     .filter(ev => ev.type === 'class' && ev.date && codeRe.test(ev.title || ''))
     .map(ev => ({ ev, dayDiff: Math.abs(Math.ceil((new Date(ev.date) - new Date(t)) / 86400000)) }))
     .filter(c => c.dayDiff <= 3)
-    .sort((a, b) => a.dayDiff - b.dayDiff)[0];
-  if (!near) return null;
-  return { code: near.ev.title.match(codeRe)[0], eventTitle: near.ev.title };
+    .sort((a, b) => a.dayDiff - b.dayDiff)
+    .forEach(c => {
+      if (targets.length >= limit) return;
+      const code = c.ev.title.match(codeRe)[0];
+      if (seen.has(code)) return;
+      seen.add(code);
+      targets.push({ code, eventTitle: c.ev.title });
+    });
+  return targets;
 }
 
 function generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates) {
@@ -416,37 +426,36 @@ function generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates) {
   }
 
   // Gap-fill: pack each free window with as many flexible candidates as fit,
-  // one after another (each sized to its own duration, never stretched).
-  // This runs its own study/work quota, separate from the main loop's —
-  // otherwise evening-fixed domains (Cybersecurity Practice, Finance, ...)
-  // could exhaust the whole day's study/work cap before gap-fill ever gets
-  // a turn, leaving a large daytime gap (no classes, no fixed blocks yet)
-  // completely unfillable even though Module Reading et al. are available.
-  let gapStudyCount = 0, gapWorkCount = 0;
+  // one after another (each sized to its own duration, never stretched). No
+  // category cap here — gap-fill only spends time nothing else claimed, so
+  // the study/work balance the main loop protects isn't at stake; it just
+  // keeps drawing from flexPool until a window runs out of space or
+  // candidates. Module Reading is the one repeatable item: instead of a
+  // single nearest-module block, it can fill one slot per upcoming module
+  // (resolveModuleReadingTargets), so a free day can carry reading for more
+  // than one class.
+  const moduleTargets = resolveModuleReadingTargets();
+  let moduleReadingUsed = 0;
   const gaps = computeGaps(selected.filter(d => d.time));
   for (const gap of gaps) {
     let cursor = gap.start;
     let remaining = gap.minutes;
     while (remaining >= MIN_GAP_MINUTES) {
-      const candidate = flexPool.find(c =>
-        !selected.find(s => s.id === c.id) &&
-        !(c.cat === 'study' && gapStudyCount >= MAX_STUDY) &&
-        !(c.cat === 'work'  && gapWorkCount  >= MAX_WORK) &&
-        (c.duration || 45) <= remaining
-      );
+      const candidate = flexPool.find(c => {
+        if ((c.duration || 45) > remaining) return false;
+        if (c.id === 'module_reading') return moduleReadingUsed < moduleTargets.length;
+        return !selected.find(s => s.id === c.id);
+      });
       if (!candidate) break;
       const duration = Math.min(candidate.duration || 45, remaining);
       const filled = { ...candidate, time: cursor, endTime: addMinutesToTime(cursor, duration) };
       if (filled.id === 'module_reading') {
-        const target = resolveModuleReadingTarget();
-        if (target) {
-          filled.title = `Module Reading — ${target.code}`;
-          filled.note = `Lecture material for ${target.eventTitle}`;
-        }
+        const target = moduleTargets[moduleReadingUsed];
+        filled.title = `Module Reading — ${target.code}`;
+        filled.note = `Lecture material for ${target.eventTitle}`;
+        moduleReadingUsed++;
       }
       selected.push(filled);
-      if (filled.cat === 'study') gapStudyCount++;
-      if (filled.cat === 'work')  gapWorkCount++;
       cursor = addMinutesToTime(cursor, duration);
       remaining -= duration;
     }

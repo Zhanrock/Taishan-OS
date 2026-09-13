@@ -2,7 +2,7 @@
 
 > *Your personal operating system. Cloud-synced. Algorithm-driven. Built for a life with too much going on.*
 
-**v2.9.19** · [Live →](https://zhanrock.github.io/Taishan-OS/)
+**v2.9.20** · [Live →](https://zhanrock.github.io/Taishan-OS/)
 
 ---
 
@@ -350,6 +350,7 @@ create policy "Users own their data" on finance_sync_state for all using (auth.u
 
 | Version | What changed |
 |---|---|
+| v2.9.20 | Gap-fill's study/work quota (v2.9.19) removed entirely -- it only ever spends time nothing else claimed, so the category balance the main scoring loop protects isn't at stake there, and the quota was blocking nothing real anyway (the actual limit on a free day is how few flexible domains/tasks exist, not a cap). Module Reading can now fill one gap-fill slot per upcoming module (`resolveModuleReadingTargets`, up to 3, nearest-class-first) instead of always just the single nearest one. |
 | v2.9.19 | Gap-fill now runs its own study/work quota separate from the main scoring loop's. Previously the day's whole study/work cap could be exhausted by evening-fixed domains (e.g. Cybersecurity Practice, Finance, Chinese all landing before gap-fill runs), leaving a large daytime gap unfillable even with an available flexible domain like Module Reading sitting unused. |
 | v2.9.18 | The v2.9.17 fixes exposed two more bugs. A hardcoded 9-item cap in the day generator's main scoring loop (separate from the study/work/health per-category caps) silently dropped low-scoring `personal`-cat domains once anchors and guaranteed deadlines ate into its budget -- Guitar lost its slot to Chinese this way with no guarantee fallback to catch it (health/leisure already had one). The flat cap is removed; the per-category caps and the day's actual clock time already bound how much fits. Also found Cybersecurity Practice and Chinese sharing the same 21:00 time_slot with no conflict detection between fixed domains -- Chinese moved to 20:00 in Supabase. In-app header (`index.html` `.logo`) was still showing v2.9.15 two releases behind; the version-bump invariant now covers it explicitly alongside README. |
 | v2.9.17 | Gap-fill (v2.9.15) placed only one flexible item per free window no matter how large -- a weekend with no fixed blocks left most of the day empty after a single 45-60min filler. It now tiles candidates back-to-back until the gap runs out of space or candidates, same caps as before. Also raised the daily study cap (MAX_STUDY) from 2 to 3 -- with 4 study-cat domains competing for fixed slots (e.g. a daily-frequency one with no overdue bonus to build up, alongside higher-priority or longer-interval ones), the lowest-priority daily study domain could go unscheduled for long stretches. |
