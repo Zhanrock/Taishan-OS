@@ -21,8 +21,9 @@ in order from `index.html`; there are no modules or imports.
 - **Schema changes update the README.** The SQL block in README.md is what
   someone forking this runs. If a table or column is added, changed, or newly
   queried in `js/data.js`, update the SQL block in the same commit.
-- **Bump the version.** Header version and the Version History table at the
-  bottom of README.md, together, in the same commit.
+- **Bump the version.** README.md's header version and Version History
+  table, AND the in-app header in `index.html` (`.logo` div), together, in
+  the same commit. All three drift independently if only some are touched.
 
 ## Maintaining this file
 

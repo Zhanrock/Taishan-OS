@@ -387,6 +387,12 @@ function generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates) {
   scored.filter(d => d.tags && d.tags.includes('anchor'))
     .forEach(d => { if (!selected.find(s => s.id === d.id)) selected.push(d); });
 
+  // No flat cap on total item count here — the per-category caps above
+  // (study/work/health) plus the day's actual clock time already bound how
+  // much fits. A flat cap silently dropped low-scoring categories (like
+  // personal) once enough guaranteed deadlines and anchors ate into its
+  // budget, with no guarantee fallback to catch them the way health/leisure
+  // have.
   for (const d of scored) {
     if (selected.find(s => s.id === d.id)) continue;
     if (d.cat === 'study'   && studyCount   >= MAX_STUDY) continue;
@@ -397,7 +403,6 @@ function generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates) {
     if (d.cat === 'work')    workCount++;
     if (d.cat === 'health')  physCount++;
     if (d.cat === 'leisure') leisureCount++;
-    if (selected.length >= 9) break;
   }
 
   // Guarantees
