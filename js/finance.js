@@ -33,7 +33,7 @@ function onFinanceAccountSelectChange(selectEl, prevValue, applyFn) {
   const raw = prompt('New account name (e.g. "Thai Bank"):');
   const name = (raw || '').trim();
   if (!name) { selectEl.value = prevValue; return; }
-  document.querySelectorAll('.fi-account-select, #fi-filter-account').forEach(sel => {
+  document.querySelectorAll('.fi-account-select, #fi-filter-account-top').forEach(sel => {
     if (sel.querySelector(`option[value="${CSS.escape(name)}"]`)) return;
     const opt = document.createElement('option');
     opt.value = name; opt.textContent = name;
@@ -177,6 +177,85 @@ function renderFinanceSyncStatus() {
 // (element not found) when Finance isn't showing.
 setInterval(renderFinanceSyncStatus, 60000);
 
+// ── FX rates (display-only conversion, never touches stored amounts/currency)
+// Fetched from Frankfurter (ECB-sourced, free, no key, CORS-enabled) --
+// confirmed it serves SGD as a base with THB/USD among its symbols. ECB
+// only publishes once per business day, so re-fetching more often than
+// that buys nothing; cached in memory for FINANCE_FX_CACHE_MS and re-fetched
+// on the next Finance tab visit after that, or on a hard page reload. If
+// the fetch fails (offline, API down) everything below no-ops back to the
+// existing "(not converted)" text -- there is no fallback static rate
+// table, since a stale hardcoded rate is worse than admitting we don't know. ──
+let financeFxRates = null; // { base:'SGD', date, rates:{THB,USD,...,SGD:1}, fetchedAt }
+let financeFxFetchPromise = null;
+const FINANCE_FX_CACHE_MS = 6 * 60 * 60 * 1000;
+
+function ensureFinanceFxRates() {
+  if (financeFxRates && (Date.now() - financeFxRates.fetchedAt) < FINANCE_FX_CACHE_MS) {
+    return Promise.resolve(financeFxRates);
+  }
+  if (financeFxFetchPromise) return financeFxFetchPromise;
+  financeFxFetchPromise = fetch('https://api.frankfurter.dev/v1/latest?base=SGD')
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      financeFxRates = data ? { base: data.base, date: data.date, rates: { SGD: 1, ...data.rates }, fetchedAt: Date.now() } : financeFxRates;
+      return financeFxRates;
+    })
+    .catch(() => financeFxRates)
+    .finally(() => { financeFxFetchPromise = null; });
+  return financeFxFetchPromise;
+}
+
+// amount in `currency` -> SGD equivalent at the cached rate, or null if no
+// rate is known for that currency (or nothing has loaded yet).
+function financeToSGD(amount, currency) {
+  if (!financeFxRates) return null;
+  if (currency === 'SGD') return amount;
+  const rate = financeFxRates.rates[currency]; // 1 SGD = rate <currency>
+  if (!rate) return null;
+  return amount / rate;
+}
+
+// Recomputes just the FX-dependent banners (not a full renderFinance()) so
+// the async rate fetch resolving doesn't clobber an in-progress edit
+// elsewhere on the tab. No-ops harmlessly if Finance isn't the active tab.
+function renderFinanceFxBanner() {
+  const otherEl = document.getElementById('fi-stat-other-currencies');
+  if (!otherEl) return;
+  const monthTxns = financeCurrentMonthTxns();
+  const byCurrency = {};
+  monthTxns.forEach(t => {
+    const cur = t.currency || 'SGD';
+    const bucket = byCurrency[cur] || (byCurrency[cur] = { spent: 0, income: 0, count: 0 });
+    const amt = Number(t.amount) || 0;
+    if (t.direction === 'credit') bucket.income += amt; else bucket.spent += amt;
+    bucket.count++;
+  });
+  const currencies = Object.keys(byCurrency).sort((a, b) => byCurrency[b].count - byCurrency[a].count);
+  const others = currencies.slice(1);
+  if (!others.length) { otherEl.style.display = 'none'; return; }
+
+  if (financeFxRates) {
+    let sgdTotal = 0, allConverted = true;
+    currencies.forEach(c => {
+      const b = byCurrency[c];
+      const converted = financeToSGD(b.income - b.spent, c);
+      if (converted === null) { allConverted = false; return; }
+      sgdTotal += converted;
+    });
+    const otherText = others.map(c => `${(byCurrency[c].income - byCurrency[c].spent).toFixed(2)} ${c}`).join(', ');
+    otherEl.textContent = allConverted
+      ? `≈ ${sgdTotal.toFixed(2)} SGD total this month (incl. ${otherText}, converted at ${financeFxRates.date}'s rate -- not live, check before relying on it)`
+      : `Also this month (rate unavailable for ${otherText}): not converted`;
+  } else {
+    otherEl.textContent = 'Also this month (not converted): ' + others.map(c => {
+      const b = byCurrency[c];
+      return `${(b.income - b.spent).toFixed(2)} ${c} net`;
+    }).join(', ');
+  }
+  otherEl.style.display = '';
+}
+
 function renderFinance() {
   const monthTxns = financeCurrentMonthTxns();
 
@@ -206,17 +285,8 @@ function renderFinance() {
   const savingsRate = p.income > 0 ? ((p.income - p.spent) / p.income) * 100 : null;
   document.getElementById('fi-stat-savings').textContent = savingsRate === null ? '—' : `${savingsRate.toFixed(0)}%`;
 
-  const otherEl = document.getElementById('fi-stat-other-currencies');
-  const others = currencies.slice(1);
-  if (others.length) {
-    otherEl.textContent = 'Also this month (not converted): ' + others.map(c => {
-      const b = byCurrency[c];
-      return `${(b.income - b.spent).toFixed(2)} ${c} net`;
-    }).join(', ');
-    otherEl.style.display = '';
-  } else {
-    otherEl.style.display = 'none';
-  }
+  renderFinanceFxBanner();
+  ensureFinanceFxRates().then(renderFinanceFxBanner);
 
   renderFinanceTotalBalance();
   renderFinanceCategoryBreakdown(monthTxns);
@@ -376,7 +446,7 @@ function ensureFinanceCategoryFilterOptions() {
 }
 
 function ensureFinanceAccountFilterOptions() {
-  const sel = document.getElementById('fi-filter-account');
+  const sel = document.getElementById('fi-filter-account-top');
   sel.innerHTML = '<option value="all">All accounts</option>' + financeAllAccounts().map(a =>
     `<option value="${a}" ${a === financeFilterAccount ? 'selected' : ''}>${a}</option>`).join('');
   sel.value = financeFilterAccount;

@@ -213,9 +213,11 @@ planned:
 - GIRO / FAST transfer / ATM withdrawal / salary credit DBS sub-parsers --
   still scaffolded, waiting on real samples (see "Extending the ignore
   list" above and `diagnose.py --list-subjects`).
-- A currency-conversion option for the 6-month trend and stats, instead
-  of always picking the dominant currency and listing the rest
-  unconverted.
+- The month view's SGD-equivalent conversion (see `js/finance.js`'s FX
+  section) doesn't yet extend to the 6-month trend chart or the all-time
+  Total Balance card -- both still pick the dominant currency and list the
+  rest unconverted, since converting old transactions at *today's* rate
+  gets less accurate the further back they go.
 
 ### Built
 
