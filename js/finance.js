@@ -470,12 +470,19 @@ function useFinanceUnmatchedForManual(id) {
 // ── Paste-an-alert (best-effort client-side extraction; the real parsing
 // lives in finance-sync/parsers -- this is only meant to save typing for a
 // manual entry, never to silently create a transaction on its own) ──
+// Any 3-letter ISO code (USD, THB, EUR, ...) next to an amount, plus the two
+// SGD-only symbol forms our own bank alerts use -- not just SGD/THB, since a
+// foreign-currency card alert (e.g. "Amount: USD10.80") was silently
+// defaulting to SGD here even though the pasted text said otherwise.
 function extractLikelyAmount(text) {
-  const m = (text || '').match(/(?:SGD|S\$|THB|฿)\s?([\d,]+\.\d{2})/i) || (text || '').match(/([\d,]+\.\d{2})\s?(?:SGD|THB)/i);
+  const m = (text || '').match(/(?:[A-Z]{3}|S\$|฿)\s?([\d,]+\.\d{2})/) || (text || '').match(/([\d,]+\.\d{2})\s?[A-Z]{3}\b/);
   return m ? parseFloat(m[1].replace(/,/g, '')) : null;
 }
 function extractLikelyCurrency(text) {
-  if (/THB|฿/i.test(text)) return 'THB';
+  const m = (text || '').match(/\b(?:Amount|Amt)[:\s]*([A-Z]{3})\s?[\d,]+\.\d{2}/) || (text || '').match(/\b([A-Z]{3})\s?[\d,]+\.\d{2}/);
+  if (m) return m[1];
+  if (/S\$/.test(text)) return 'SGD';
+  if (/฿/.test(text)) return 'THB';
   return 'SGD';
 }
 function extractLikelyMerchant(text) {

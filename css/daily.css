@@ -136,6 +136,20 @@
 .daily-item[data-pri="medium"]::before { background: var(--accent4); }
 .daily-item[data-pri="low"]::before    { background: var(--success); }
 
+/* Currently-happening block (within 30min of its time) — the whole card
+   gets a tint + glow, not just the small time-text color change, since that
+   alone was too easy to miss scanning the list. */
+.daily-item.di-now {
+  background: rgba(106,255,212,0.07);
+  border-color: rgba(106,255,212,0.45);
+  box-shadow: 0 0 0 1px rgba(106,255,212,0.15);
+}
+.di-now-tag {
+  font-family: var(--mono); font-size: 9px; padding: 1px 6px; border-radius: 3px;
+  border: 1px solid rgba(106,255,212,0.4); color: var(--accent3);
+  background: rgba(106,255,212,0.1); letter-spacing: 0.06em;
+}
+
 .di-check {
   width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--border);
   cursor: pointer; flex-shrink: 0; transition: all 0.2s;

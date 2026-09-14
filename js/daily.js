@@ -785,8 +785,9 @@ function dailyItemHTML(t) {
   const timeStr = t.time  ? `<span class="di-time ${isNow?'now':''}">⏰ ${fmt12(t.time)}${t.end_time ? ' – ' + fmt12(t.end_time) : ''}</span>` : '';
   const noteStr = t.note  ? `<span class="di-note">${esc(t.note)}</span>` : '';
   const autoTag = t.domain_id ? `<span class="di-auto-tag">▸ AUTO</span>` : (t.source_type ? `<span class="di-auto-tag">▸ DEADLINE</span>` : '');
+  const nowTag = isNow ? `<span class="di-now-tag">● NOW</span>` : '';
   const detailBtn = t.domain_id ? `<button class="dom-detail-link-btn" style="margin-top:4px" onclick="goToDomainsTab('${t.domain_id}')">▸ view details →</button>` : '';
-  return `<div class="daily-item ${t.done?'di-done':''}" data-pri="${t.pri}" id="di-${t.id}">
+  return `<div class="daily-item ${t.done?'di-done':''} ${isNow?'di-now':''}" data-pri="${t.pri}" id="di-${t.id}">
     <div class="di-check ${t.done?'checked':''}" onclick="toggleDaily('${t.id}',${t.done})">${t.done?'✓':''}</div>
     <div class="di-body">
       <div class="di-title">${esc(t.title)}</div>
@@ -795,6 +796,7 @@ function dailyItemHTML(t) {
         ${timeStr}
         <span class="di-pri-label di-pri-${t.pri}">${t.pri}</span>
         ${autoTag}
+        ${nowTag}
       </div>
       ${noteStr}
       ${detailBtn}
