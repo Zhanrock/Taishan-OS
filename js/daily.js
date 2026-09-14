@@ -103,6 +103,7 @@ function dbRowToDomain(row) {
     note:                  row.note || '',
     detailContent:         row.detail_content || [],
     isArchived:            row.is_archived || false,
+    createdAt:             row.created_at || null,
   };
 }
 
@@ -196,11 +197,16 @@ const DAILY_CATS = {
 
 function scoreDomain(domain, lastDoneDate, urgencyDays) {
   let score = domain.basePriority * 10;
-  if (lastDoneDate) {
-    const daysSince = Math.floor((new Date(today()) - new Date(lastDoneDate)) / 86400000);
+  // A never-done domain climbs the same overdue ramp as a done one, counted
+  // from creation instead of last_done — otherwise it parks at a flat +20
+  // forever (see decisions.md, 2026-09-14) while anything ticked even once
+  // climbs past it, and it can never get ticked because it never surfaces.
+  const anchorDate = lastDoneDate || domain.createdAt;
+  if (anchorDate) {
+    const daysSince = Math.floor((new Date(today()) - new Date(anchorDate)) / 86400000);
     score += Math.max(0, daysSince - domain.freqDays) * 8;
   } else {
-    score += 20; // never done — bump it up
+    score += 20; // no last_done and no created_at (shouldn't happen) — fallback
   }
   const udl = domain.urgencyDeadlineDays || 7;
   if (urgencyDays != null && urgencyDays <= udl) {

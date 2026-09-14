@@ -2,7 +2,7 @@
 
 > *Your personal operating system. Cloud-synced. Algorithm-driven. Built for a life with too much going on.*
 
-**v2.9.21** · [Live →](https://zhanrock.github.io/Taishan-OS/)
+**v2.9.22** · [Live →](https://zhanrock.github.io/Taishan-OS/)
 
 ---
 
@@ -350,6 +350,7 @@ create policy "Users own their data" on finance_sync_state for all using (auth.u
 
 | Version | What changed |
 |---|---|
+| v2.9.22 | A never-done domain (`last_done` null) scored a flat +20 forever instead of climbing the overdue ramp like everything else -- once any other domain in its category had been ticked even once, it permanently outscored the never-done one, which could then never surface to get ticked. It now climbs the same `(daysSince - freqDays) * 8` ramp counted from `created_at` instead. Guitar and Chinese (created 2026-09-07, never surfaced since) were the domains stuck in this deadlock. |
 | v2.9.21 | Guaranteed deadlines (a task due within 3 days, an exam/deadline heads-up) previously never got a clock time even when a gap-fill slot was free -- they were pushed straight into the plan as a bare no-time reminder. They now get first claim on gap-fill space (ahead of flexible domains and non-urgent tasks), falling back to no-time only if a gap genuinely isn't available. Domain detail pages gained an edit form (title, category, priority, frequency, time slot/flexible, duration, urgency deadline, note) -- previously the only way to change an existing domain's scheduling stats was a direct Supabase edit. Morning Anchor and Night Protocol's notes now point at the Schedule tab (Night Protocol checklist, Morning Card) and Streaks tab (Wake Up / Morning Routine) instead of restating a routine that already lives there and can drift out of sync. |
 | v2.9.20 | Gap-fill's study/work quota (v2.9.19) removed entirely -- it only ever spends time nothing else claimed, so the category balance the main scoring loop protects isn't at stake there, and the quota was blocking nothing real anyway (the actual limit on a free day is how few flexible domains/tasks exist, not a cap). Module Reading can now fill one gap-fill slot per upcoming module (`resolveModuleReadingTargets`, up to 3, nearest-class-first) instead of always just the single nearest one. |
 | v2.9.19 | Gap-fill now runs its own study/work quota separate from the main scoring loop's. Previously the day's whole study/work cap could be exhausted by evening-fixed domains (e.g. Cybersecurity Practice, Finance, Chinese all landing before gap-fill runs), leaving a large daytime gap unfillable even with an available flexible domain like Module Reading sitting unused. |
