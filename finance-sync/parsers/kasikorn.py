@@ -50,6 +50,7 @@ def parse(msg) -> Transaction:
 
     return Transaction(
         bank="kasikorn",
+        account="Kasikorn",
         account_mask=account_mask,
         txn_date=txn_date,
         txn_time=txn_time,

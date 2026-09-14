@@ -36,6 +36,7 @@ def build_recurring_row(rec: dict, month_key: str) -> dict:
     return {
         "external_id": recurring_external_id(rec["id"], month_key),
         "bank": "recurring",
+        "account": rec.get("account") or "DBS Main",
         "txn_date": date(year, month, rec["day_of_month"]).isoformat(),
         "amount": rec["amount"],
         "currency": rec.get("currency") or "SGD",

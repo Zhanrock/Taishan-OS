@@ -2,7 +2,7 @@
 
 > *Your personal operating system. Cloud-synced. Algorithm-driven. Built for a life with too much going on.*
 
-**v2.9.23** · [Live →](https://zhanrock.github.io/Taishan-OS/)
+**v2.9.24** · [Live →](https://zhanrock.github.io/Taishan-OS/)
 
 ---
 
@@ -110,10 +110,10 @@ user_domains (user_id, domain_id, title, cat, pri, time_slot, duration_mins,
 user_domain_progress (user_id, domain_id, last_done)
 
 -- Bank transactions, synced from Gmail by finance-sync/ (see that folder's README)
-finance_transactions (user_id, external_id, bank, account_mask, txn_date,
-                       txn_time, amount, currency, direction, merchant,
-                       category, raw_subject, status, payment_method,
-                       txn_ref, is_estimated)
+finance_transactions (user_id, external_id, bank, account, account_mask,
+                       txn_date, txn_time, amount, currency, direction,
+                       merchant, category, raw_subject, status,
+                       payment_method, txn_ref, is_estimated)
 
 -- Bank notification emails finance-sync couldn't parse, surfaced in the
 -- Finance tab's Unmatched Inbox instead of silently dropped
@@ -123,8 +123,8 @@ finance_unmatched (user_id, gmail_id, sender, subject, received_at, snippet,
 -- User-declared recurring bills/income that never trigger a bank email alert;
 -- finance-sync materializes one finance_transactions row per due date, marked
 -- is_estimated
-finance_recurring (user_id, name, amount, currency, direction, category,
-                    day_of_month, active, started_on, created_at)
+finance_recurring (user_id, name, amount, currency, account, direction,
+                    category, day_of_month, active, started_on, created_at)
 
 -- Cursor for the finance-sync job. last_synced_at is the Gmail query
 -- watermark (only advances when new mail is found); last_run_at is set
@@ -261,7 +261,7 @@ create table finance_transactions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade,
   external_id text not null,
-  bank text not null, account_mask text,
+  bank text not null, account text not null default 'DBS Main', account_mask text,
   txn_date date not null, txn_time text,
   amount numeric(12,2) not null,
   currency text default 'THB', direction text not null,
@@ -303,6 +303,7 @@ create table finance_recurring (
   user_id uuid not null references auth.users(id),
   name text not null, amount numeric not null,
   currency text not null default 'SGD',
+  account text not null default 'DBS Main',
   direction text not null default 'debit',
   category text not null default 'bills',
   day_of_month smallint not null check (day_of_month between 1 and 28),
@@ -350,6 +351,7 @@ create policy "Users own their data" on finance_sync_state for all using (auth.u
 
 | Version | What changed |
 |---|---|
+| v2.9.24 | Finance now tracks multiple accounts, not just one implicit DBS balance -- `finance_transactions`/`finance_recurring` gained an `account` column (default `DBS Main`, backfilled). New `parsers/dbs/paylah.py` captures PayLah! Scan & Pay alerts (a separate sender, `paylah.alert@dbs.com`, previously not even fetched from Gmail) tagged `account="PayLah!"`; Kasikorn rows now tag `account="Kasikorn"`. Total Balance is grouped by account first, then currency, with a per-account breakdown list once more than one account has activity; the transaction list gained an account filter alongside the category one, and the add/edit/recurring forms all gained an account picker (same "+ New ..." pattern as categories) so a future Thai bank account needs no code change to add. |
 | v2.9.23 | Daily Planner's "current block" indicator was just a color change on the small time text (`.di-time.now`), easy to miss scanning the list -- the whole card now gets a tint/border/glow plus a `● NOW` badge in the meta row when it's within 30min of now. Also fixed `extractLikelyCurrency`/`extractLikelyAmount` (the Unmatched-Inbox-to-manual-entry paste helper) only recognizing THB as a non-SGD currency and silently defaulting anything else, USD included, to SGD -- now detects any 3-letter currency code generically, same as the real parser. |
 | v2.9.22 | A never-done domain (`last_done` null) scored a flat +20 forever instead of climbing the overdue ramp like everything else -- once any other domain in its category had been ticked even once, it permanently outscored the never-done one, which could then never surface to get ticked. It now climbs the same `(daysSince - freqDays) * 8` ramp counted from `created_at` instead. Guitar and Chinese (created 2026-09-07, never surfaced since) were the domains stuck in this deadlock. |
 | v2.9.21 | Guaranteed deadlines (a task due within 3 days, an exam/deadline heads-up) previously never got a clock time even when a gap-fill slot was free -- they were pushed straight into the plan as a bare no-time reminder. They now get first claim on gap-fill space (ahead of flexible domains and non-urgent tasks), falling back to no-time only if a gap genuinely isn't available. Domain detail pages gained an edit form (title, category, priority, frequency, time slot/flexible, duration, urgency deadline, note) -- previously the only way to change an existing domain's scheduling stats was a direct Supabase edit. Morning Anchor and Night Protocol's notes now point at the Schedule tab (Night Protocol checklist, Morning Card) and Streaks tab (Wake Up / Morning Routine) instead of restating a routine that already lives there and can drift out of sync. |

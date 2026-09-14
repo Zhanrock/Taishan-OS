@@ -2,9 +2,47 @@
 let financeViewMonth = today().slice(0, 7);
 let financeSearchQuery = '';
 let financeFilterCategory = 'all';
+let financeFilterAccount = 'all';
 let financeEditingId = null;
 let financeConfirmDeleteId = null;
 let financeUnmatchedOpen = false;
+
+// ── ACCOUNTS (which balance a transaction hits -- distinct from `bank`;
+// see finance-sync/README.md's "Accounts vs. banks"). No separate storage:
+// the list is the seed constant unioned with whatever distinct `account`
+// values already exist in this user's own rows, so a brand-new one (e.g.
+// a Thai bank once travel starts) just needs typing once. ──
+function financeAllAccounts() {
+  const seen = new Set(FINANCE_ACCOUNTS);
+  (state.financeTransactions || []).forEach(t => { if (t.account) seen.add(t.account); });
+  (state.financeRecurring || []).forEach(r => { if (r.account) seen.add(r.account); });
+  return Array.from(seen);
+}
+
+function financeAccountOptionsHTML(selected) {
+  return financeAllAccounts().map(a => `<option value="${a}" ${a === selected ? 'selected' : ''}>${a}</option>`).join('')
+    + '<option value="__new__">+ New Account…</option>';
+}
+
+// Shared onchange handler for every account <select> in Finance -- mirrors
+// onFinanceCategorySelectChange, minus the persistence step (there's
+// nothing to save; a new account just needs to exist in a saved row to
+// show up in financeAllAccounts() from then on).
+function onFinanceAccountSelectChange(selectEl, prevValue, applyFn) {
+  if (selectEl.value !== '__new__') { applyFn(selectEl.value); return; }
+  const raw = prompt('New account name (e.g. "Thai Bank"):');
+  const name = (raw || '').trim();
+  if (!name) { selectEl.value = prevValue; return; }
+  document.querySelectorAll('.fi-account-select, #fi-filter-account').forEach(sel => {
+    if (sel.querySelector(`option[value="${CSS.escape(name)}"]`)) return;
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name;
+    const newOpt = sel.querySelector('option[value="__new__"]');
+    if (newOpt) sel.insertBefore(opt, newOpt); else sel.appendChild(opt);
+  });
+  selectEl.value = name;
+  applyFn(name);
+}
 
 // ── CATEGORIES (built-ins + user-created) ──
 function financeAllCategories() { return FINANCE_CATEGORIES.concat(FINANCE_CUSTOM_CATEGORIES); }
@@ -82,7 +120,12 @@ function changeFinanceMonth(delta) {
 
 function setFinanceSearch(v) { financeSearchQuery = v.trim().toLowerCase(); renderFinanceTxnList(financeCurrentMonthTxns()); }
 function setFinanceCategoryFilter(v) { financeFilterCategory = v; renderFinanceTxnList(financeCurrentMonthTxns()); }
-function financeCurrentMonthTxns() { return state.financeTransactions.filter(t => financeMonthKey(t.txn_date) === financeViewMonth); }
+function setFinanceAccountFilter(v) { financeFilterAccount = v; renderFinance(); }
+function financeCurrentMonthTxns() {
+  let txns = state.financeTransactions.filter(t => financeMonthKey(t.txn_date) === financeViewMonth);
+  if (financeFilterAccount !== 'all') txns = txns.filter(t => (t.account || 'DBS Main') === financeFilterAccount);
+  return txns;
+}
 
 // ── Sync status (last run / next scheduled run) ── finance-sync.yml's cron
 // fires 04:17/10:17/16:17/22:17 UTC -- kept in sync with that file by hand,
@@ -186,36 +229,53 @@ function renderFinance() {
 
 // All-time net across every synced/manual transaction, not just this month --
 // this is a tracked total (see the coverage note below the stats grid), not a
-// real bank balance. Same never-sum-currencies rule as the monthly stats.
+// real bank balance. Grouped by account first (PayLah! keeps its own balance
+// separate from DBS Main even though both are SGD), then by currency within
+// an account for the rare case an account itself switches currency (a Thai
+// bank account used only while travelling). Never summed across either axis.
 function renderFinanceTotalBalance() {
-  const byCurrency = {};
+  const byAccount = {};
   state.financeTransactions.forEach(t => {
+    const acct = t.account || 'DBS Main';
     const cur = t.currency || 'SGD';
-    const bucket = byCurrency[cur] || (byCurrency[cur] = { spent: 0, income: 0, count: 0 });
+    const acctBucket = byAccount[acct] || (byAccount[acct] = {});
+    const bucket = acctBucket[cur] || (acctBucket[cur] = { spent: 0, income: 0, count: 0 });
     const amt = Number(t.amount) || 0;
     if (t.direction === 'credit') bucket.income += amt; else bucket.spent += amt;
     bucket.count++;
   });
-  const currencies = Object.keys(byCurrency).sort((a, b) => byCurrency[b].count - byCurrency[a].count);
-  const primary = currencies[0] || 'SGD';
-  const p = byCurrency[primary] || { spent: 0, income: 0 };
-  const total = p.income - p.spent;
+
+  const accounts = Object.keys(byAccount).sort((a, b) => {
+    const countOf = (acctBucket) => Object.values(acctBucket).reduce((s, b) => s + b.count, 0);
+    return countOf(byAccount[b]) - countOf(byAccount[a]);
+  });
 
   const totalEl = document.getElementById('fi-stat-total');
-  totalEl.textContent = `${total.toFixed(2)} ${primary}`;
-  totalEl.style.color = total < 0 ? 'var(--danger)' : 'var(--accent4)';
-
-  const otherEl = document.getElementById('fi-stat-total-other-currencies');
-  const others = currencies.slice(1);
-  if (others.length) {
-    otherEl.textContent = 'Also tracked (not converted): ' + others.map(c => {
-      const b = byCurrency[c];
-      return `${(b.income - b.spent).toFixed(2)} ${c}`;
-    }).join(', ');
-    otherEl.style.display = '';
+  if (!accounts.length) {
+    totalEl.textContent = '0.00 SGD';
+    totalEl.style.color = 'var(--accent4)';
   } else {
-    otherEl.style.display = 'none';
+    const primaryAccount = accounts[0];
+    const currencies = Object.keys(byAccount[primaryAccount]).sort((a, b) => byAccount[primaryAccount][b].count - byAccount[primaryAccount][a].count);
+    const primaryCurrency = currencies[0];
+    const p = byAccount[primaryAccount][primaryCurrency];
+    const total = p.income - p.spent;
+    totalEl.textContent = `${total.toFixed(2)} ${primaryCurrency} (${primaryAccount})`;
+    totalEl.style.color = total < 0 ? 'var(--danger)' : 'var(--accent4)';
   }
+
+  const listEl = document.getElementById('fi-account-balances');
+  if (accounts.length <= 1) { listEl.style.display = 'none'; listEl.innerHTML = ''; return; }
+  listEl.style.display = '';
+  listEl.innerHTML = accounts.map(acct => {
+    const currencies = Object.keys(byAccount[acct]).sort((a, b) => byAccount[acct][b].count - byAccount[acct][a].count);
+    const parts = currencies.map(cur => {
+      const b = byAccount[acct][cur];
+      const net = b.income - b.spent;
+      return `<span style="color:${net < 0 ? 'var(--danger)' : 'var(--text)'}">${net.toFixed(2)} ${cur}</span>`;
+    });
+    return `<div class="fi-account-balance-row"><span class="fi-account-balance-name">${financeEscape(acct)}</span>${parts.join(' &middot; ')}</div>`;
+  }).join('');
 }
 
 function renderFinanceCategoryBreakdown(monthTxns) {
@@ -241,7 +301,7 @@ function renderFinanceCategoryBreakdown(monthTxns) {
 const FINANCE_METHOD_LABELS = {
   paynow: 'PayNow', nets_qr: 'NETS QR', nets_card: 'NETS Card', card: 'Card',
   contactless: 'Contactless', giro: 'GIRO', fast: 'FAST Transfer', atm: 'ATM',
-  manual: 'Manual entry', recurring: 'Recurring',
+  manual: 'Manual entry', recurring: 'Recurring', paylah: 'PayLah!',
 };
 function financeMethodLabel(method) { return FINANCE_METHOD_LABELS[method] || 'Unspecified'; }
 
@@ -315,8 +375,16 @@ function ensureFinanceCategoryFilterOptions() {
   sel.value = financeFilterCategory;
 }
 
+function ensureFinanceAccountFilterOptions() {
+  const sel = document.getElementById('fi-filter-account');
+  sel.innerHTML = '<option value="all">All accounts</option>' + financeAllAccounts().map(a =>
+    `<option value="${a}" ${a === financeFilterAccount ? 'selected' : ''}>${a}</option>`).join('');
+  sel.value = financeFilterAccount;
+}
+
 function renderFinanceTxnList(monthTxns) {
   ensureFinanceCategoryFilterOptions();
+  ensureFinanceAccountFilterOptions();
   const el = document.getElementById('fi-txn-list');
   let txns = monthTxns;
   if (financeFilterCategory !== 'all') txns = txns.filter(t => t.category === financeFilterCategory);
@@ -342,7 +410,7 @@ function financeTxnHTML(t) {
       <div class="fi-txn-merchant">${t.merchant || 'Unknown'} ${pendingBadge}${estimatedBadge}</div>
       <div class="fi-txn-meta">
         <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${fmtDate(t.txn_date)}${t.txn_time ? ' · ' + fmt12(t.txn_time) : ''}</span>
-        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${t.bank}${t.account_mask ? ' ••' + t.account_mask : ''}</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${t.account || 'DBS Main'}${t.account_mask ? ' ••' + t.account_mask : ''}</span>
       </div>
     </div>
     <select class="form-select fi-cat-select" style="border-color:${color};color:${color}" onchange="onFinanceCategorySelectChange(this, '${t.category}', (v) => updateFinanceCategory('${t.id}', v))" onclick="event.stopPropagation()">${catOptions}</select>
@@ -353,6 +421,7 @@ function financeTxnHTML(t) {
 
 function financeTxnEditHTML(t) {
   const catOptions = financeCategoryOptionsHTML(t.category);
+  const acctOptions = financeAccountOptionsHTML(t.account || 'DBS Main');
   const merchant = (t.merchant || '').replace(/"/g, '&quot;');
   return `<div class="fi-txn-item fi-txn-item-edit">
     <div class="fi-txn-edit-fields">
@@ -368,6 +437,9 @@ function financeTxnEditHTML(t) {
         </select>
         <select class="form-select" id="fi-edit-cat-${t.id}" onchange="onFinanceCategorySelectChange(this, '${t.category}', () => {})">${catOptions}</select>
       </div>
+      <div class="form-row">
+        <select class="form-select fi-account-select" id="fi-edit-account-${t.id}" onchange="onFinanceAccountSelectChange(this, '${t.account || 'DBS Main'}', () => {})" style="flex:1">${acctOptions}</select>
+      </div>
       <div class="form-actions"><button class="btn-cancel" onclick="cancelFinanceEdit()">Cancel</button><button class="btn-save" onclick="saveFinanceEdit('${t.id}')">SAVE</button></div>
     </div>
   </div>`;
@@ -382,12 +454,13 @@ async function saveFinanceEdit(id) {
   const txn_date = document.getElementById(`fi-edit-date-${id}`).dataset.iso;
   const direction = document.getElementById(`fi-edit-direction-${id}`).value;
   const category = document.getElementById(`fi-edit-cat-${id}`).value;
+  const account = document.getElementById(`fi-edit-account-${id}`).value;
   if (!merchant || !amount || !txn_date) { notify('⚠ Error', 'Merchant, amount and date are required', 'var(--accent2)'); return; }
   setSyncStatus('syncing');
-  const { error } = await db.from('finance_transactions').update({ merchant, amount, txn_date, direction, category }).eq('id', id);
+  const { error } = await db.from('finance_transactions').update({ merchant, amount, txn_date, direction, category, account }).eq('id', id);
   if (error) { notify('⚠ Error', 'Could not save changes', 'var(--danger)'); setSyncStatus('error'); return; }
   const t = state.financeTransactions.find(x => x.id === id);
-  if (t) Object.assign(t, { merchant, amount, txn_date, direction, category });
+  if (t) Object.assign(t, { merchant, amount, txn_date, direction, category, account });
   financeEditingId = null;
   setSyncStatus('synced');
   renderFinance();
@@ -512,7 +585,7 @@ function extractFinancePaste() {
 
 function exportFinanceCsv() {
   const txns = financeCurrentMonthTxns();
-  const cols = ['txn_date', 'txn_time', 'merchant', 'amount', 'currency', 'direction', 'category', 'payment_method', 'status', 'bank'];
+  const cols = ['txn_date', 'txn_time', 'merchant', 'amount', 'currency', 'direction', 'category', 'payment_method', 'status', 'bank', 'account'];
   const csvEscape = (v) => {
     const s = v === null || v === undefined ? '' : String(v);
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
@@ -536,6 +609,9 @@ function toggleFinanceAddForm(skipReset) {
     catSelect.innerHTML = financeCategoryOptionsHTML(null);
     catSelect.onchange = () => onFinanceCategorySelectChange(catSelect, catSelect.dataset.prev || 'uncategorized', (v) => { catSelect.dataset.prev = v; });
   }
+  const acctSelect = document.getElementById('fi-account-input');
+  acctSelect.innerHTML = financeAccountOptionsHTML(acctSelect.dataset.prev || 'DBS Main');
+  acctSelect.onchange = () => onFinanceAccountSelectChange(acctSelect, acctSelect.dataset.prev || 'DBS Main', (v) => { acctSelect.dataset.prev = v; });
   if (skipReset) { f.classList.add('open'); return; }
   f.classList.toggle('open');
   if (f.classList.contains('open')) {
@@ -544,6 +620,7 @@ function toggleFinanceAddForm(skipReset) {
     document.getElementById('fi-direction-input').value = 'debit';
     document.getElementById('fi-currency-input').value = 'SGD';
     catSelect.value = catSelect.dataset.prev = 'uncategorized';
+    acctSelect.value = acctSelect.dataset.prev = 'DBS Main';
     document.getElementById('fi-merchant-input').focus();
   }
 }
@@ -558,6 +635,7 @@ async function saveManualTransaction() {
     user_id: currentUser.id,
     external_id: `manual-${Date.now()}`,
     bank: 'manual',
+    account: document.getElementById('fi-account-input').value || 'DBS Main',
     txn_date: txnDate,
     txn_time: document.getElementById('fi-time-input').value || null,
     amount,
@@ -601,7 +679,7 @@ function financeRecurringHTML(r) {
     <div class="fi-txn-body">
       <div class="fi-txn-merchant">${financeEscape(r.name)}</div>
       <div class="fi-txn-meta">
-        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">day ${r.day_of_month} of month</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">day ${r.day_of_month} of month &middot; ${r.account || 'DBS Main'}</span>
         <span style="font-family:var(--mono);font-size:10px;color:var(--muted);text-transform:capitalize">${r.category}${r.active ? '' : ' &middot; paused'}</span>
       </div>
     </div>
@@ -618,6 +696,9 @@ function toggleFinanceRecurringForm() {
     catSelect.innerHTML = financeCategoryOptionsHTML(null);
     catSelect.onchange = () => onFinanceCategorySelectChange(catSelect, catSelect.dataset.prev || 'bills', (v) => { catSelect.dataset.prev = v; });
   }
+  const acctSelect = document.getElementById('fi-rec-account-input');
+  acctSelect.innerHTML = financeAccountOptionsHTML(acctSelect.dataset.prev || 'DBS Main');
+  acctSelect.onchange = () => onFinanceAccountSelectChange(acctSelect, acctSelect.dataset.prev || 'DBS Main', (v) => { acctSelect.dataset.prev = v; });
   f.classList.toggle('open');
   if (f.classList.contains('open')) {
     document.getElementById('fi-rec-name-input').value = '';
@@ -626,6 +707,7 @@ function toggleFinanceRecurringForm() {
     document.getElementById('fi-rec-direction-input').value = 'debit';
     document.getElementById('fi-rec-currency-input').value = 'SGD';
     catSelect.value = catSelect.dataset.prev = 'bills';
+    acctSelect.value = acctSelect.dataset.prev = 'DBS Main';
     document.getElementById('fi-rec-name-input').focus();
   }
 }
@@ -644,6 +726,7 @@ async function saveFinanceRecurring() {
     name,
     amount,
     currency: document.getElementById('fi-rec-currency-input').value,
+    account: document.getElementById('fi-rec-account-input').value || 'DBS Main',
     direction: document.getElementById('fi-rec-direction-input').value,
     category: document.getElementById('fi-rec-cat-input').value,
     day_of_month: day,

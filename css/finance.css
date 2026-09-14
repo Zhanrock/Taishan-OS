@@ -11,6 +11,18 @@
 .fi-month-btn:not(:disabled):hover { border-color: var(--accent); }
 
 .fi-coverage-note { font-family: var(--mono); font-size: 10px; color: var(--muted); margin: 0 0 20px; line-height: 1.5; }
+
+/* Per-account balance breakdown under the stats grid -- only shown once a
+   second account (PayLah!, a future Thai bank, ...) actually has activity,
+   since a single-account user gains nothing from a one-row list repeating
+   the Total Balance card above it. */
+.fi-account-balances {
+  display: flex; flex-direction: column; gap: 4px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; margin: -4px 0 16px; font-family: var(--mono); font-size: 11px;
+}
+.fi-account-balance-row { display: flex; justify-content: space-between; gap: 10px; }
+.fi-account-balance-name { color: var(--muted); }
 .fi-sync-note { font-family: var(--mono); font-size: 10px; color: var(--muted); margin: -8px 0 12px; letter-spacing: 0.02em; }
 
 .fi-trend { margin-bottom: 20px; }

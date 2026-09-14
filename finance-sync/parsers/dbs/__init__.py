@@ -11,9 +11,14 @@ dispatches to a sub-parser by subject (or, for paynow, by body -- see
 paynow.py). If nothing matches, raises NeedsReview so sync.py logs it to
 finance_unmatched instead of guessing or silently dropping it.
 
-Live sub-parsers: nets_scan_pay, paynow, card.
+Live sub-parsers: nets_scan_pay, paynow, card, paylah.
 Scaffolded (TODO, no confirmed sample yet): giro, fast_transfer,
 atm_withdrawal, salary_credit.
+
+PayLah! alerts come from a separate sender (paylah.alert@dbs.com, not
+ibanking.alert@dbs.com) and dispatch through their own sub-parser list --
+see PAYLAH_SENDER below and parsers/dbs/paylah.py's docstring for why it's
+kept a distinct account despite living under the same "dbs" bank umbrella.
 
 DBS does NOT use one uniform subject convention -- confirmed from two real
 samples: NETS Scan & Pay's subject is "digibank Alert - Successful NETS
@@ -29,11 +34,14 @@ this list from real inbox data with:
 import re
 
 from ..base import Ignored, NeedsReview, Transaction
-from . import atm_withdrawal, card, common, fast_transfer, giro, nets_scan_pay, paynow, salary_credit
+from . import atm_withdrawal, card, common, fast_transfer, giro, nets_scan_pay, paylah, paynow, salary_credit
 
 SENDER = common.SENDER
+PAYLAH_SENDER = "paylah.alert@dbs.com"
+SENDERS = [SENDER, PAYLAH_SENDER]
 
 SUB_PARSERS = [nets_scan_pay, paynow, card, giro, fast_transfer, atm_withdrawal, salary_credit]
+PAYLAH_SUB_PARSERS = [paylah]
 
 # DBS's subject convention is "digibank Alert - <description>". Match on the
 # descriptive part, not an assumed "Successful" prefix -- non-transactional
@@ -55,7 +63,8 @@ IGNORED_SUBJECT_PATTERNS = [
 
 
 def matches(msg) -> bool:
-    return SENDER in msg.get("From", "").lower()
+    sender = msg.get("From", "").lower()
+    return any(s in sender for s in SENDERS)
 
 
 def _is_ignored(subject: str) -> bool:
@@ -64,6 +73,14 @@ def _is_ignored(subject: str) -> bool:
 
 def parse(msg) -> Transaction:
     subject = msg.get("Subject", "")
+    sender = msg.get("From", "").lower()
+
+    if PAYLAH_SENDER in sender:
+        for sub_parser in PAYLAH_SUB_PARSERS:
+            if sub_parser.matches(msg):
+                return sub_parser.parse(msg)
+        raise NeedsReview(f"no PayLah sub-parser matched subject: {subject!r}")
+
     if _is_ignored(subject):
         raise Ignored(subject)
     for sub_parser in SUB_PARSERS:

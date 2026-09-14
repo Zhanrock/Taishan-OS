@@ -16,6 +16,9 @@ Expected parse() return shape (all keys required except account_mask and
 txn_time):
 {
   "bank": "example_bank",
+  "account": "DBS Main",        # which balance this belongs to -- distinct
+                                 # from "bank": a bank can have more than one
+                                 # (DBS Main vs PayLah!, both bank="dbs")
   "account_mask": "1234",       # last 4 digits, or None if not present
   "txn_date": "2026-08-24",     # ISO date string
   "txn_time": "14:32",          # "HH:MM" 24h, or None if the body has no time
@@ -36,6 +39,7 @@ from bs4 import BeautifulSoup
 
 class Transaction(TypedDict, total=False):
     bank: str
+    account: str
     account_mask: str | None
     txn_date: str
     txn_time: str | None

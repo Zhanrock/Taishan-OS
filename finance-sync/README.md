@@ -14,6 +14,7 @@ sync if tests fail.
 | DBS (Singapore) | PayNow transfer confirmations (`parsers/dbs/paynow.py`) | Live, tested against a real sample |
 | DBS (Singapore) | NETS Scan & Pay (`parsers/dbs/nets_scan_pay.py`) | Live |
 | DBS (Singapore) | Card (Visa/Mastercard/NETS card, contactless, Google Wallet) -- `parsers/dbs/card.py` | Live, tested against a real sample |
+| DBS PayLah! (Singapore) | Scan & Pay Transfer -- `parsers/dbs/paylah.py`, sent from a separate `paylah.alert@dbs.com` sender, tagged `account="PayLah!"` | Live, tested against a real sample. Top-ups/P2P transfers unconfirmed |
 | DBS (Singapore) | GIRO / standing instruction | Scaffolded |
 | DBS (Singapore) | FAST transfer | Scaffolded |
 | DBS (Singapore) | ATM withdrawal | Scaffolded |
@@ -27,6 +28,16 @@ Scan & Pay was added; it is not a complete picture of every alert DBS sends
 Anything from a supported bank's sender that no sub-parser recognises is
 persisted to `finance_unmatched` (not silently dropped) so it's visible
 without digging through Actions logs -- see "Reading the unmatched list."
+
+## Accounts vs. banks
+
+`finance_transactions.account` is a separate concept from `bank`: `bank`
+identifies the institution/parser (`dbs`, `kasikorn`), `account` identifies
+which balance a transaction actually hits, since one bank can have more
+than one (DBS Main vs PayLah! -- linked but tracked separately by DBS
+itself, confirmed by PayLah! alerts using their own sender and template).
+Every parser sets `account` explicitly; there is no bank-level default.
+`DBS Main` is the default for existing/manual rows predating this field.
 
 ## DBS alerting rules (why this system is shaped the way it is)
 

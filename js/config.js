@@ -45,6 +45,11 @@ const DEFAULT_TASKS = [
 ];
 const EVENT_COLORS = { meeting:'#7c6aff', deadline:'#ff6a6a', class:'#6affd4', personal:'#ffd36a', exam:'#ff9f6a' };
 const FINANCE_CATEGORIES = ['food','transport','groceries','subscriptions','bills','shopping','entertainment','health','uncategorized','other'];
+// Seed list only -- financeAllAccounts() unions this with whatever distinct
+// `account` values already exist in the user's own transactions/recurring
+// rows, so a new one (e.g. a Thai bank) needs no config change: type it
+// once via "+ New Account", and it's in the list from then on.
+const FINANCE_ACCOUNTS = ['DBS Main', 'PayLah!'];
 const FINANCE_CATEGORY_COLORS = { food:'#ff9f6a', transport:'#6affd4', groceries:'#ffd36a', subscriptions:'#7c6aff', bills:'#ff6a6a', shopping:'#a06aff', entertainment:'#6ab4ff', health:'#6aff9f', uncategorized:'#8a8a9a', other:'#8a8a9a' };
 const MONTH_NAMES  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DOW_NAMES    = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
