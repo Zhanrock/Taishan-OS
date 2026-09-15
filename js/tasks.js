@@ -8,9 +8,9 @@ function renderTasks() {
   document.getElementById('pinnedTask').innerHTML = hp ? taskHTML(hp) : '<div class="empty-state"><div>\u2713</div>No pending tasks!</div>';
   const sorted = [...tasks].sort((a,b) => {
     if (a.done!==b.done) return a.done?1:-1;
+    if ((a.due||'z')!==(b.due||'z')) return (a.due||'z')<(b.due||'z')?-1:1;
     const po={high:0,med:1,low:2};
-    if (po[a.priority]!==po[b.priority]) return po[a.priority]-po[b.priority];
-    return (a.due||'z')<(b.due||'z')?-1:1;
+    return po[a.priority]-po[b.priority];
   });
   document.getElementById('taskList').innerHTML = sorted.length
     ? sorted.map(taskHTML).join('')
