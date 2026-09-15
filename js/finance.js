@@ -206,54 +206,69 @@ function ensureFinanceFxRates() {
   return financeFxFetchPromise;
 }
 
-// amount in `currency` -> SGD equivalent at the cached rate, or null if no
-// rate is known for that currency (or nothing has loaded yet).
+// amount in `currency` -> SGD equivalent at the cached rate. SGD never needs
+// a rate. Returns null if no rate is known for a non-SGD currency (or the
+// fetch hasn't resolved yet), so callers can flag what's excluded.
 function financeToSGD(amount, currency) {
-  if (!financeFxRates) return null;
   if (currency === 'SGD') return amount;
+  if (!financeFxRates) return null;
   const rate = financeFxRates.rates[currency]; // 1 SGD = rate <currency>
   if (!rate) return null;
   return amount / rate;
 }
 
-// Recomputes just the FX-dependent banners (not a full renderFinance()) so
-// the async rate fetch resolving doesn't clobber an in-progress edit
-// elsewhere on the tab. No-ops harmlessly if Finance isn't the active tab.
-function renderFinanceFxBanner() {
-  const otherEl = document.getElementById('fi-stat-other-currencies');
-  if (!otherEl) return;
-  const monthTxns = financeCurrentMonthTxns();
-  const byCurrency = {};
-  monthTxns.forEach(t => {
+// Sums a set of transactions into one SGD-equivalent spent/income/net,
+// converting every non-SGD amount at the cached rate. Currencies that
+// couldn't be converted (rate missing/unfetched) are excluded from the sum
+// and reported back so the caller can disclose the gap rather than silently
+// dropping money from the total.
+function financeSumConvertedToSGD(txns) {
+  let spent = 0, income = 0;
+  const unconverted = new Set();
+  txns.forEach(t => {
     const cur = t.currency || 'SGD';
-    const bucket = byCurrency[cur] || (byCurrency[cur] = { spent: 0, income: 0, count: 0 });
     const amt = Number(t.amount) || 0;
-    if (t.direction === 'credit') bucket.income += amt; else bucket.spent += amt;
-    bucket.count++;
+    const converted = financeToSGD(amt, cur);
+    if (converted === null) { unconverted.add(cur); return; }
+    if (t.direction === 'credit') income += converted; else spent += converted;
   });
-  const currencies = Object.keys(byCurrency).sort((a, b) => byCurrency[b].count - byCurrency[a].count);
-  const others = currencies.slice(1);
-  if (!others.length) { otherEl.style.display = 'none'; return; }
+  return { spent, income, net: income - spent, unconverted };
+}
 
-  if (financeFxRates) {
-    let sgdTotal = 0, allConverted = true;
-    currencies.forEach(c => {
-      const b = byCurrency[c];
-      const converted = financeToSGD(b.income - b.spent, c);
-      if (converted === null) { allConverted = false; return; }
-      sgdTotal += converted;
-    });
-    const otherText = others.map(c => `${(byCurrency[c].income - byCurrency[c].spent).toFixed(2)} ${c}`).join(', ');
-    otherEl.textContent = allConverted
-      ? `≈ ${sgdTotal.toFixed(2)} SGD total this month (incl. ${otherText}, converted at ${financeFxRates.date}'s rate -- not live, check before relying on it)`
-      : `Also this month (rate unavailable for ${otherText}): not converted`;
+// Recomputes the FX-dependent stat tiles (not a full renderFinance()) so the
+// async rate fetch resolving doesn't clobber an in-progress edit elsewhere
+// on the tab. No-ops harmlessly if Finance isn't the active tab. Spent /
+// Income / Net / Savings / Total Balance are each a single SGD-equivalent
+// arithmetic total -- non-SGD transactions are converted in, not listed
+// alongside. Per-transaction and per-account currency detail still lives in
+// the transaction list and the account-balance breakdown below the tiles.
+function renderFinanceFxDependent(monthTxns) {
+  const spentEl = document.getElementById('fi-stat-spent');
+  if (!spentEl) return;
+
+  const m = financeSumConvertedToSGD(monthTxns);
+  spentEl.textContent = `${m.spent.toFixed(2)} SGD`;
+  document.getElementById('fi-stat-income').textContent = `${m.income.toFixed(2)} SGD`;
+  document.getElementById('fi-stat-net').textContent = `${m.net.toFixed(2)} SGD`;
+  document.getElementById('fi-stat-savings').textContent = m.income > 0 ? `${((m.net / m.income) * 100).toFixed(0)}%` : '—';
+
+  const b = financeSumConvertedToSGD(state.financeTransactions);
+  const totalEl = document.getElementById('fi-stat-total');
+  totalEl.textContent = `${b.net.toFixed(2)} SGD`;
+  totalEl.style.color = b.net < 0 ? 'var(--danger)' : 'var(--accent4)';
+
+  const noteEl = document.getElementById('fi-stat-other-currencies');
+  const unconverted = new Set([...m.unconverted, ...b.unconverted]);
+  if (!financeFxRates) {
+    if (unconverted.size) { noteEl.textContent = 'FX rate not loaded yet -- totals above exclude ' + [...unconverted].join(', ') + '.'; noteEl.style.display = ''; }
+    else noteEl.style.display = 'none';
+  } else if (unconverted.size) {
+    noteEl.textContent = `Converted to SGD at ${financeFxRates.date}'s rate -- not live, check before relying on it. Excludes ${[...unconverted].join(', ')} (no rate available).`;
+    noteEl.style.display = '';
   } else {
-    otherEl.textContent = 'Also this month (not converted): ' + others.map(c => {
-      const b = byCurrency[c];
-      return `${(b.income - b.spent).toFixed(2)} ${c} net`;
-    }).join(', ');
+    noteEl.textContent = `Converted to SGD at ${financeFxRates.date}'s rate -- not live, check before relying on it.`;
+    noteEl.style.display = '';
   }
-  otherEl.style.display = '';
 }
 
 function renderFinance() {
@@ -263,32 +278,16 @@ function renderFinance() {
   renderFinanceSyncStatus();
   document.getElementById('fi-month-next').disabled = financeViewMonth >= today().slice(0, 7);
 
-  // Never sum across currencies -- group first, then show the currency with
-  // the most activity this month as the headline; list the rest separately
-  // rather than silently mixing THB into an SGD total.
-  const byCurrency = {};
-  monthTxns.forEach(t => {
-    const cur = t.currency || 'SGD';
-    const bucket = byCurrency[cur] || (byCurrency[cur] = { spent: 0, income: 0, count: 0 });
-    const amt = Number(t.amount) || 0;
-    if (t.direction === 'credit') bucket.income += amt; else bucket.spent += amt;
-    bucket.count++;
-  });
-  const currencies = Object.keys(byCurrency).sort((a, b) => byCurrency[b].count - byCurrency[a].count);
-  const primary = currencies[0] || 'SGD';
-  const p = byCurrency[primary] || { spent: 0, income: 0, count: 0 };
-
-  document.getElementById('fi-stat-spent').textContent = `${p.spent.toFixed(2)} ${primary}`;
-  document.getElementById('fi-stat-income').textContent = `${p.income.toFixed(2)} ${primary}`;
-  document.getElementById('fi-stat-net').textContent = `${(p.income - p.spent).toFixed(2)} ${primary}`;
   document.getElementById('fi-stat-count').textContent = monthTxns.length;
-  const savingsRate = p.income > 0 ? ((p.income - p.spent) / p.income) * 100 : null;
-  document.getElementById('fi-stat-savings').textContent = savingsRate === null ? '—' : `${savingsRate.toFixed(0)}%`;
 
-  renderFinanceFxBanner();
-  ensureFinanceFxRates().then(renderFinanceFxBanner);
+  // Spent/Income/Net/Savings/Total Balance are single SGD-equivalent totals --
+  // non-SGD transactions are converted in via financeSumConvertedToSGD, not
+  // listed alongside. Run once with whatever rate is cached now, then again
+  // once the fetch resolves.
+  renderFinanceFxDependent(monthTxns);
+  ensureFinanceFxRates().then(() => renderFinanceFxDependent(monthTxns));
 
-  renderFinanceTotalBalance();
+  renderFinanceAccountBalances();
   renderFinanceCategoryBreakdown(monthTxns);
   renderFinancePaymentMethodBreakdown(monthTxns);
   renderFinanceTrend();
@@ -297,13 +296,13 @@ function renderFinance() {
   renderFinanceRecurring();
 }
 
-// All-time net across every synced/manual transaction, not just this month --
-// this is a tracked total (see the coverage note below the stats grid), not a
-// real bank balance. Grouped by account first (PayLah! keeps its own balance
-// separate from DBS Main even though both are SGD), then by currency within
-// an account for the rare case an account itself switches currency (a Thai
-// bank account used only while travelling). Never summed across either axis.
-function renderFinanceTotalBalance() {
+// Per-account, per-currency detail behind the Total Balance tile (whose
+// headline number is the SGD-converted grand total from
+// renderFinanceFxDependent). PayLah! keeps its own balance separate from DBS
+// Main even though both are SGD; within an account, currencies are kept
+// apart too (a Thai account used only while travelling). This list shows
+// original, unconverted amounts -- it's the detail the headline collapses.
+function renderFinanceAccountBalances() {
   const byAccount = {};
   state.financeTransactions.forEach(t => {
     const acct = t.account || 'DBS Main';
@@ -319,20 +318,6 @@ function renderFinanceTotalBalance() {
     const countOf = (acctBucket) => Object.values(acctBucket).reduce((s, b) => s + b.count, 0);
     return countOf(byAccount[b]) - countOf(byAccount[a]);
   });
-
-  const totalEl = document.getElementById('fi-stat-total');
-  if (!accounts.length) {
-    totalEl.textContent = '0.00 SGD';
-    totalEl.style.color = 'var(--accent4)';
-  } else {
-    const primaryAccount = accounts[0];
-    const currencies = Object.keys(byAccount[primaryAccount]).sort((a, b) => byAccount[primaryAccount][b].count - byAccount[primaryAccount][a].count);
-    const primaryCurrency = currencies[0];
-    const p = byAccount[primaryAccount][primaryCurrency];
-    const total = p.income - p.spent;
-    totalEl.textContent = `${total.toFixed(2)} ${primaryCurrency} (${primaryAccount})`;
-    totalEl.style.color = total < 0 ? 'var(--danger)' : 'var(--accent4)';
-  }
 
   const listEl = document.getElementById('fi-account-balances');
   if (accounts.length <= 1) { listEl.style.display = 'none'; listEl.innerHTML = ''; return; }
