@@ -27,6 +27,19 @@ function displayToTimeInput(val) {
   return `${String(h).padStart(2,'0')}:${String(m||0).padStart(2,'0')}`;
 }
 
+// Early-morning times (before 4am) belong to the tail end of the previous
+// day's schedule (e.g. a 00:00 or 03:30 night-protocol block should sort
+// after 23:xx, not before the morning blocks).
+const SCHEDULE_ROLLOVER_HOUR = 4;
+function scheduleSortKey(time) {
+  const [h, m] = time.split(':').map(Number);
+  const mins = h * 60 + m;
+  return h < SCHEDULE_ROLLOVER_HOUR ? mins + 24 * 60 : mins;
+}
+function sortScheduleBlocks() {
+  scheduleBlocks.sort((a, b) => scheduleSortKey(a.time) - scheduleSortKey(b.time));
+}
+
 // ── FOCUS TIMER ──
 let focusTimerInterval = null;
 let focusTimerSeconds = 0;
@@ -201,7 +214,7 @@ async function submitAddBlock() {
   if (!label)   { notify('\u26A0 Error', 'Block name required', 'var(--accent2)'); return; }
   const displayTime = timeInputToDisplay(timeRaw);
   scheduleBlocks.push({ time: displayTime, label, sub, type });
-  scheduleBlocks.sort((a, b) => { const [ah,am]=a.time.split(':').map(Number),[bh,bm]=b.time.split(':').map(Number); return (ah*60+am)-(bh*60+bm); });
+  sortScheduleBlocks();
   await saveScheduleBlocks();
   cancelAddBlock();
   notify('\u2713 Block added', label, 'var(--accent)');
@@ -272,7 +285,7 @@ async function submitEditBlock() {
   if (!label)   { notify('\u26A0 Error', 'Block name required', 'var(--accent2)'); return; }
   const displayTime = timeInputToDisplay(timeRaw);
   scheduleBlocks[editingBlockIndex] = { time: displayTime, label, sub, type };
-  scheduleBlocks.sort((a, b) => { const [ah,am]=a.time.split(':').map(Number),[bh,bm]=b.time.split(':').map(Number); return (ah*60+am)-(bh*60+bm); });
+  sortScheduleBlocks();
   await saveScheduleBlocks();
   _removeBlockEditForm();
   notify('\u2713 Block updated', label, 'var(--accent)');
