@@ -23,23 +23,51 @@ function New-TaishanIcon {
     $g.FillEllipse($glowBrush, $glowRect)
     $glowBrush.Dispose()
 
+    # mountain glyph: twin peaks (Taishan), scaled to sit inside a $GlyphScale-wide box centered in the canvas
+    $box = $Size * $GlyphScale * 1.55
+    $ox = ($Size - $box) / 2
+    $oy = ($Size - $box) / 2 + ($Size * 0.06)
+
+    function P([double]$fx, [double]$fy) {
+        New-Object System.Drawing.PointF(($ox + $fx * $box), ($oy + $fy * $box))
+    }
+
+    # back peak — dimmer accent
+    $backColor = [System.Drawing.Color]::FromArgb(255, 74, 63, 150)
+    $backBrush = New-Object System.Drawing.SolidBrush($backColor)
+    $backPeak = @(
+        (P 0.36 0.16),
+        (P 0.10 0.80),
+        (P 0.62 0.80)
+    )
+    $g.FillPolygon($backBrush, $backPeak)
+    $backBrush.Dispose()
+
+    # front peak — full accent
     $accent = [System.Drawing.ColorTranslator]::FromHtml("#7c6aff")
-    $brush = New-Object System.Drawing.SolidBrush($accent)
+    $frontBrush = New-Object System.Drawing.SolidBrush($accent)
+    $frontPeak = @(
+        (P 0.64 0.30),
+        (P 0.30 0.80),
+        (P 0.98 0.80)
+    )
+    $g.FillPolygon($frontBrush, $frontPeak)
 
-    $fontSize = [float]($Size * $GlyphScale)
-    $font = New-Object System.Drawing.Font("Segoe UI", $fontSize, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-    $text = "T"
-    $fmt = New-Object System.Drawing.StringFormat
-    $fmt.Alignment = [System.Drawing.StringAlignment]::Center
-    $fmt.LineAlignment = [System.Drawing.StringAlignment]::Center
-
-    $rect = New-Object System.Drawing.RectangleF(0, 0, $Size, ($Size * 1.02))
-    $g.DrawString($text, $font, $brush, $rect, $fmt)
+    # snow cap on front peak — light accent triangle
+    $snow = [System.Drawing.Color]::FromArgb(255, 224, 220, 255)
+    $snowBrush = New-Object System.Drawing.SolidBrush($snow)
+    $snowCap = @(
+        (P 0.64 0.30),
+        (P 0.56 0.42),
+        (P 0.64 0.40),
+        (P 0.72 0.42)
+    )
+    $g.FillPolygon($snowBrush, $snowCap)
+    $snowBrush.Dispose()
+    $frontBrush.Dispose()
 
     $bmp.Save($OutPath, [System.Drawing.Imaging.ImageFormat]::Png)
 
-    $font.Dispose()
-    $brush.Dispose()
     $g.Dispose()
     $bmp.Dispose()
 }
