@@ -2,7 +2,7 @@
 
 > *Your personal operating system. Cloud-synced. Algorithm-driven. Built for a life with too much going on.*
 
-**v2.9.27** · [Live →](https://zhanrock.github.io/Taishan-OS/)
+**v2.9.28** · [Live →](https://zhanrock.github.io/Taishan-OS/)
 
 ---
 
@@ -351,6 +351,7 @@ create policy "Users own their data" on finance_sync_state for all using (auth.u
 
 | Version | What changed |
 |---|---|
+| v2.9.28 | Fixed-time domains (e.g. Running set to 23:30) were never checked against the Morning Anchor / Night Protocol window -- only flexible gap-fill items were bounded by it, so a fixed domain could silently land after "the end of the day" with no warning. Domain Manager's edit form now rejects a fixed time_slot outside the anchor window, pointing at making it Flexible instead. |
 | v2.9.27 | Schedule blocks sorted purely by clock-time minutes, so an early-morning time (e.g. setting Night Protocol to 00:00, intending "end of day") jumped to the *top* of the list instead of staying last. Times before 4am now sort as belonging to the tail end of the day (+24h) instead of the start, matching how people actually think about a midnight/small-hours block. |
 | v2.9.26 | Spent/Income/Net/Savings Rate and Total Balance are now single SGD-equivalent arithmetic totals (non-SGD transactions converted in at the day's Frankfurter/ECB rate) instead of showing only the majority currency plus a separate "also this month" line -- the old split confused people into thinking DBS Main's USD balance was excluded from the SGD total shown next to it. Per-transaction and per-account currency detail is unchanged (transaction list, account-balance breakdown). One shared caveat line replaces the old per-metric banner text. |
 | v2.9.25 | Account filter moved from the Transactions section to the Finance tab header, next to the month nav, since it scopes the whole month view (stats, breakdowns, list), not just the list. Month stats now show a live SGD-equivalent banner when more than one currency is active this month (fetched from Frankfurter/ECB rates, cached 6h, display-only -- never touches stored amounts), replacing the old flat "not converted" text. Manually added the PayLah! Scan & Pay transaction from 6 Sep that predated PayLah! sync support. |

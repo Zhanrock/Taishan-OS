@@ -379,6 +379,23 @@ async function submitDomainStatsEdit(domainId) {
     note: document.getElementById('dom-edit-note').value.trim(),
   };
 
+  // Fixed-time domains only compete for a slot inside the Morning/Night
+  // anchor window — the day generator never clamps them to it, so a domain
+  // saved outside the window (e.g. Running at 23:30, after a 23:00 Night
+  // Protocol) silently lands past "the end of the day" with no warning.
+  if (!isAnchor && updates.time) {
+    const anchors = LIFE_DOMAINS.filter(a => a.tags && a.tags.includes('anchor') && a.time);
+    const morning = anchors.find(a => timeToMinutes(a.time) < 720);
+    const night   = anchors.find(a => timeToMinutes(a.time) >= 720);
+    if (morning && night) {
+      const mins = timeToMinutes(updates.time);
+      if (mins < timeToMinutes(morning.time) || mins >= timeToMinutes(night.time)) {
+        notify('⚠ Outside day window', `${updates.time} falls outside Morning Anchor (${morning.time}) – Night Protocol (${night.time}). Pick a time in between, or make it Flexible.`, 'var(--accent2)');
+        return;
+      }
+    }
+  }
+
   if (!d._db_id) { notify('⚠ Error', 'Domain not synced yet — try again shortly', 'var(--accent2)'); return; }
   setSyncStatus('syncing');
   const { error } = await db.from('user_domains').update({
