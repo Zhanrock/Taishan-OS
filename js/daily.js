@@ -319,18 +319,33 @@ function minutesToTime(mins) {
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 }
 
+// A plain minutes-of-day value sorts a small-hours time (e.g. Night
+// Protocol set to 00:00, meaning "end of today") before the morning, which
+// is backwards for anything meant to close out the day. Times before 4am
+// are treated as belonging to the tail end of the day (+24h) instead of
+// the start, matching how people actually set a midnight/small-hours block.
+const DAY_ROLLOVER_HOUR = 4;
+function daySortKey(time) {
+  const mins = timeToMinutes(time);
+  const h = Math.floor(mins / 60);
+  return h < DAY_ROLLOVER_HOUR ? mins + 1440 : mins;
+}
+
 const MIN_GAP_MINUTES = 20;
 
 // Free windows between today's timed blocks, bounded by the morning/night
 // anchors — the day's natural start and end. Anchors are found by tag, not
-// a hardcoded id, so this still works if they're ever renamed.
+// a hardcoded id, so this still works if they're ever renamed. Which anchor
+// is "morning" vs "night" is decided by daySortKey, not raw clock time, so
+// a night anchor set to 00:00 still counts as the later one.
 function computeGaps(timedBlocks) {
-  const anchors = timedBlocks.filter(d => d.tags && d.tags.includes('anchor') && d.time);
-  const morning = anchors.find(a => timeToMinutes(a.time) < 720);
-  const night   = anchors.find(a => timeToMinutes(a.time) >= 720);
-  if (!morning || !night) return [];
+  const anchors = timedBlocks.filter(d => d.tags && d.tags.includes('anchor') && d.time)
+    .slice().sort((a, b) => daySortKey(a.time) - daySortKey(b.time));
+  const morning = anchors[0];
+  const night   = anchors[anchors.length - 1];
+  if (!morning || !night || morning === night) return [];
 
-  const dayEnd = timeToMinutes(night.time);
+  const dayEnd = daySortKey(night.time);
   const sorted = timedBlocks.filter(d => d.time)
     .slice().sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
 
@@ -488,7 +503,7 @@ function generateDailyPlan(lastDoneMap, urgencyMap, deadlineCandidates) {
   // reminder, same as before this change, instead of being dropped.
   guaranteedQueue.forEach(d => { if (!selected.find(s => s.id === d.id)) selected.push(d); });
 
-  selected.sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
+  selected.sort((a, b) => (a.time ? daySortKey(a.time) : 9999) - (b.time ? daySortKey(b.time) : 9999));
   return selected;
 }
 
@@ -759,7 +774,7 @@ function renderDaily() {
   const PO = { high:0, medium:1, low:2 };
   list.sort((a,b) => {
     if (a.done !== b.done) return a.done ? 1 : -1;
-    if (a.time && b.time) return a.time.localeCompare(b.time);
+    if (a.time && b.time) return daySortKey(a.time) - daySortKey(b.time);
     if (a.time) return -1; if (b.time) return 1;
     return (PO[a.pri]||1) - (PO[b.pri]||1);
   });

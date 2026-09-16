@@ -384,12 +384,12 @@ async function submitDomainStatsEdit(domainId) {
   // saved outside the window (e.g. Running at 23:30, after a 23:00 Night
   // Protocol) silently lands past "the end of the day" with no warning.
   if (!isAnchor && updates.time) {
-    const anchors = LIFE_DOMAINS.filter(a => a.tags && a.tags.includes('anchor') && a.time);
-    const morning = anchors.find(a => timeToMinutes(a.time) < 720);
-    const night   = anchors.find(a => timeToMinutes(a.time) >= 720);
-    if (morning && night) {
-      const mins = timeToMinutes(updates.time);
-      if (mins < timeToMinutes(morning.time) || mins >= timeToMinutes(night.time)) {
+    const anchors = LIFE_DOMAINS.filter(a => a.tags && a.tags.includes('anchor') && a.time)
+      .slice().sort((a, b) => daySortKey(a.time) - daySortKey(b.time));
+    const morning = anchors[0], night = anchors[anchors.length - 1];
+    if (morning && night && morning !== night) {
+      const key = daySortKey(updates.time);
+      if (key < daySortKey(morning.time) || key >= daySortKey(night.time)) {
         notify('⚠ Outside day window', `${updates.time} falls outside Morning Anchor (${morning.time}) – Night Protocol (${night.time}). Pick a time in between, or make it Flexible.`, 'var(--accent2)');
         return;
       }
