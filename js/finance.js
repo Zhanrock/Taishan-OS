@@ -462,7 +462,7 @@ function financeTxnHTML(t) {
     : `<button class="fi-txn-del" title="Delete" onclick="requestFinanceDelete('${t.id}')">&#10005;</button>`;
   return `<div class="fi-txn-item">
     <div class="fi-txn-body" onclick="startFinanceEdit('${t.id}')">
-      <div class="fi-txn-merchant">${t.merchant || 'Unknown'} ${pendingBadge}${estimatedBadge}</div>
+      <div class="fi-txn-merchant">${financeEscape(t.merchant || 'Unknown')} ${pendingBadge}${estimatedBadge}</div>
       <div class="fi-txn-meta">
         <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${fmtDate(t.txn_date)}${t.txn_time ? ' · ' + fmt12(t.txn_time) : ''}</span>
         <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">${t.account || 'DBS Main'}${t.account_mask ? ' ••' + t.account_mask : ''}</span>
@@ -477,7 +477,7 @@ function financeTxnHTML(t) {
 function financeTxnEditHTML(t) {
   const catOptions = financeCategoryOptionsHTML(t.category);
   const acctOptions = financeAccountOptionsHTML(t.account || 'DBS Main');
-  const merchant = (t.merchant || '').replace(/"/g, '&quot;');
+  const merchant = financeEscape(t.merchant || '');
   return `<div class="fi-txn-item fi-txn-item-edit">
     <div class="fi-txn-edit-fields">
       <div class="form-row">
@@ -569,7 +569,7 @@ function renderFinanceUnmatched() {
   </div>`).join('');
 }
 
-function financeEscape(s) { return String(s).replace(/</g, '&lt;'); }
+function financeEscape(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
 function toggleFinanceUnmatched() { financeUnmatchedOpen = !financeUnmatchedOpen; renderFinanceUnmatched(); }
 
