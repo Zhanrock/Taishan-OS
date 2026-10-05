@@ -24,6 +24,9 @@ in order from `index.html`; there are no modules or imports.
 - **Bump the version.** README.md's header version and Version History
   table, AND the in-app header in `index.html` (`.logo` div), together, in
   the same commit. All three drift independently if only some are touched.
+- **Remotes: `origin` is public, `dev` is private.** Experiment branches are
+  pushed only to `dev`; only `main` goes to `origin` (Pages deploys from it).
+  Never add `Taishan-OS-private` as a remote — its history is unscrubbed.
 
 ## Maintaining this file
 
