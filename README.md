@@ -2,7 +2,7 @@
 
 > *Your personal operating system. Cloud-synced. Algorithm-driven. Built for a life with too much going on.*
 
-**v2.9.30** · [Live →](https://zhanrock.github.io/Taishan-OS/)
+**v2.9.31** · [Live →](https://zhanrock.github.io/Taishan-OS/)
 
 ---
 
@@ -351,6 +351,7 @@ create policy "Users own their data" on finance_sync_state for all using (auth.u
 
 | Version | What changed |
 |---|---|
+| v2.9.31 | Finance sync no longer prints merchant names or amounts in its run log (soft-merge and recurring-materialize lines now print counts and row IDs only) -- GitHub Actions logs are public once the repo is public. |
 | v2.9.30 | Security pass: bank-alert merchant names are now HTML-escaped in the transaction list and edit form (previously inserted raw, so a crafted merchant string from a parsed email could inject markup), and `financeEscape` now escapes `&`, `>`, and quotes, not only `<`. Test fixture sender name replaced with a placeholder. |
 | v2.9.29 | Night Protocol's anchor time set to 00:00 (meaning "end of today") still sorted to the *top* of the Daily Planner instead of the bottom -- the day generator's anchor classification and both its final sorts (`generateDailyPlan`, `renderDaily`) compared raw clock-time strings/minutes, where 00:00 is numerically smallest. All three, plus the v2.9.28 window guardrail, now use a shared `daySortKey` that treats times before 4am as belonging to the tail end of the day (+24h), same fix as v2.9.27 applied to Schedule tab blocks. |
 | v2.9.28 | Fixed-time domains (e.g. Running set to 23:30) were never checked against the Morning Anchor / Night Protocol window -- only flexible gap-fill items were bounded by it, so a fixed domain could silently land after "the end of the day" with no warning. Domain Manager's edit form now rejects a fixed time_slot outside the anchor window, pointing at making it Flexible instead. |

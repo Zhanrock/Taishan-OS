@@ -171,8 +171,9 @@ def dedup_and_merge(supabase, user_id: str, rows: list[dict]) -> list[dict]:
             existing = candidates[0] if candidates else None
 
         if existing:
-            print(f"[soft-merge] {row.get('merchant')} {row.get('amount')} {row.get('currency')} "
-                  f"-> existing row {existing['id']} (was {existing.get('status')}, now {row.get('status')})")
+            # No merchant/amount here: Actions logs are public on a public repo.
+            print(f"[soft-merge] -> existing row {existing['id']} "
+                  f"(was {existing.get('status')}, now {row.get('status')})")
             supabase.table("finance_transactions").update({
                 "status": row.get("status", "posted"),
                 "txn_ref": row.get("txn_ref") or None,
@@ -217,8 +218,7 @@ def run(dry_run: bool) -> None:
     recurring_rows = materialize_recurring(supabase, user_id, dry_run=dry_run)
     if recurring_rows:
         prefix = "[dry-run] would materialize" if dry_run else "Materialized"
-        print(f"{prefix} {len(recurring_rows)} recurring transaction(s): "
-              + ", ".join(f"{r['merchant']} ({r['amount']} {r['currency']})" for r in recurring_rows))
+        print(f"{prefix} {len(recurring_rows)} recurring transaction(s)")
 
     gmail = gmail_client()
     messages = fetch_new_messages(gmail, since_iso)
