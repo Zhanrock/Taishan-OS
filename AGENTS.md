@@ -13,8 +13,8 @@ in order from `index.html`; there are no modules or imports.
   `auth.uid() = user_id` policy. A new table without a policy is a real
   vulnerability, not a todo.
 - **No personal data in shipped source.** Anything in `js/` reaches the
-  browser, and Pages serves the site publicly even though this repo is
-  private — repo visibility is not the lever. No employer, collaborator,
+  browser, and both this repo and the Pages site are public — and repo
+  visibility was never the lever anyway. No employer, collaborator,
   module, supervisor, or project names. `DEFAULT_DOMAINS` and
   `DEFAULT_TASKS` are generic seed data and stay that way. Real content
   lives in Supabase rows.
