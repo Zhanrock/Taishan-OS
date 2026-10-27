@@ -6,7 +6,8 @@ function renderTasks() {
   document.getElementById('taskCount').textContent = pending + ' pending';
   const hp = tasks.filter(t => !t.done && t.priority==='high')[0] || tasks.filter(t => !t.done)[0];
   document.getElementById('pinnedTask').innerHTML = hp ? taskHTML(hp) : '<div class="empty-state"><div>\u2713</div>No pending tasks!</div>';
-  const sorted = [...tasks].sort((a,b) => {
+  const failed = tasks.filter(t => t.failed);
+  const sorted = tasks.filter(t => !t.failed).sort((a,b) => {
     if (a.done!==b.done) return a.done?1:-1;
     if ((a.due||'z')!==(b.due||'z')) return (a.due||'z')<(b.due||'z')?-1:1;
     const po={high:0,med:1,low:2};
@@ -15,22 +16,30 @@ function renderTasks() {
   document.getElementById('taskList').innerHTML = sorted.length
     ? sorted.map(taskHTML).join('')
     : '<div class="empty-state"><div>\u2736</div>No tasks yet. Add one above.</div>';
+  document.getElementById('failedArchive').style.display = failed.length ? '' : 'none';
+  document.getElementById('failedCount').textContent = '(' + failed.length + ')';
+  document.getElementById('failedList').innerHTML = failed.map(taskHTML).join('');
   updateStats();
   if (editingTaskId) _injectTaskEditForm(editingTaskId);
 }
 
 function taskHTML(t) {
   const pClass = t.priority==='high'?'p-high':t.priority==='med'?'p-med':'p-low';
-  let dueStr = '';
-  if (t.due) {
+  let dueStr = '', overdue = false;
+  if (t.failed) dueStr = `<span class="task-due urgent">FAILED${t.due?' · was due '+fmtDate(t.due):''}</span>`;
+  else if (t.due) {
     const diff = Math.ceil((new Date(t.due)-new Date(today()))/86400000);
+    overdue = diff<0 && !t.done;
     if(diff<0) dueStr=`<span class="task-due urgent">OVERDUE</span>`;
     else if(diff===0) dueStr=`<span class="task-due urgent">DUE TODAY</span>`;
     else if(diff<=3) dueStr=`<span class="task-due urgent">${diff}d left</span>`;
     else dueStr=`<span class="task-due">due ${fmtDate(t.due)}</span>`;
   }
-  return `<div class="task-item ${t.done?'done':''}" id="task-${t.id}">
-    <div class="task-check ${t.done?'checked':''}" onclick="toggleTask('${t.id}',${t.done})">${t.done?'\u2713':''}</div>
+  const check = t.failed
+    ? `<div class="task-check failed-mark">\u2715</div>`
+    : `<div class="task-check ${t.done?'checked':''}" onclick="toggleTask('${t.id}',${t.done})">${t.done?'\u2713':''}</div>`;
+  return `<div class="task-item ${t.failed?'failed':t.done?'done':''}" id="task-${t.id}">
+    ${check}
     <div class="task-body">
       <div class="task-name">${t.name}</div>
       <div class="task-meta">
@@ -42,7 +51,8 @@ function taskHTML(t) {
     <div class="task-actions">
       <div class="task-priority ${pClass}"></div>
       <div class="task-action-btns">
-        <button class="task-del" onclick="openEditTask('${t.id}')" title="Edit">&#9999;</button>
+        ${overdue?`<button class="task-fail" onclick="failTask('${t.id}')" title="I didn't do it — archive as failed">FAIL</button>`:''}
+        ${t.failed?`<button class="task-del" onclick="restoreTask('${t.id}')" title="Restore to pending">&#8634;</button>`:`<button class="task-del" onclick="openEditTask('${t.id}')" title="Edit">&#9999;</button>`}
         <button class="task-del" onclick="deleteTask('${t.id}')">&#10005;</button>
       </div>
     </div>
@@ -165,6 +175,23 @@ async function toggleTask(id, currentDone) {
   if (editingTaskId === id) _removeTaskEditForm();
   renderTasks();
 }
+
+// Failing is manual, not automatic on deadline: sometimes the right move is to
+// extend the deadline instead. A failed task is also done=true so every
+// "!done = pending" filter elsewhere (calendar, daily planner, schedule) skips it.
+async function setTaskFailed(id, failed) {
+  setSyncStatus('syncing');
+  const {error} = await db.from('tasks').update({done:failed, failed}).eq('id',id);
+  if (error) { setSyncStatus('error'); return; }
+  const t = state.tasks.find(x => x.id===id);
+  if (t) { t.done = failed; t.failed = failed; }
+  setSyncStatus('synced');
+  if (editingTaskId === id) _removeTaskEditForm();
+  if (t) notify(failed ? '✕ Marked Failed' : '↺ Restored', t.name, failed ? 'var(--accent2)' : 'var(--accent)');
+  renderTasks();
+}
+function failTask(id)    { return setTaskFailed(id, true); }
+function restoreTask(id) { return setTaskFailed(id, false); }
 
 async function deleteTask(id) {
   setSyncStatus('syncing');

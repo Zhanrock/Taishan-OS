@@ -31,7 +31,7 @@ async function loadAllData() {
       });
     }
     const { data: tasks } = await db.from('tasks').select('*').eq('user_id', uid).order('created_at', { ascending: false });
-    state.tasks = (tasks || []).map(t => ({ id:t.id, name:t.name, category:t.category||'personal', due:t.due||'', priority:t.priority||'med', note:t.note||'', done:t.done||false, createdOn:t.created_on||today() }));
+    state.tasks = (tasks || []).map(t => ({ id:t.id, name:t.name, category:t.category||'personal', due:t.due||'', priority:t.priority||'med', note:t.note||'', done:t.done||false, failed:t.failed||false, createdOn:t.created_on||today() }));
     if (state.tasks.length === 0) await seedDefaultTasks();
     const { data: reviews } = await db.from('reviews').select('*').eq('user_id', uid).order('date', { ascending: false });
     state.reviews = reviews || [];

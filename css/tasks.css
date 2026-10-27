@@ -41,3 +41,11 @@
 .task-del:hover { color: var(--danger); }
 .add-form { background: var(--surface2); border: 1px solid var(--accent); border-radius: 12px; padding: 16px; margin-bottom: 16px; display: none; flex-direction: column; gap: 10px; }
 .add-form.open { display: flex; }
+.task-item.failed { opacity: 0.5; }
+.task-item.failed .task-name { text-decoration: line-through; color: var(--muted); }
+.task-check.failed-mark { background: var(--danger); border-color: var(--danger); color: #000; cursor: default; }
+.task-fail { background: none; border: 1px solid var(--accent2); color: var(--accent2); cursor: pointer; font-family: var(--mono); font-size: 10px; padding: 2px 6px; border-radius: 4px; }
+.task-fail:hover { background: rgba(255,106,106,0.12); }
+.task-archive { margin-top: 16px; }
+.task-archive summary { cursor: pointer; }
+.task-archive .task-list { margin-top: 8px; }

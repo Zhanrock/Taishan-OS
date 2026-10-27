@@ -99,7 +99,7 @@ function updateStats() {
   document.getElementById('statPhase').textContent  = state.phase;
   document.getElementById('statHabits').textContent = HABITS.filter(h => h.unlockPhase <= state.phase).length;
   const todayTasks = state.tasks.filter(t => t.createdOn === today());
-  document.getElementById('statTasks').textContent      = todayTasks.filter(t => t.done).length;
+  document.getElementById('statTasks').textContent      = todayTasks.filter(t => t.done && !t.failed).length;
   document.getElementById('statTasksTotal').textContent = todayTasks.length;
 }
 

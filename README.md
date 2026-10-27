@@ -2,7 +2,7 @@
 
 > *Your personal operating system. Cloud-synced. Algorithm-driven. Built for a life with too much going on.*
 
-**v2.9.32** · [Live →](https://zhanrock.github.io/Taishan-OS/)
+**v2.9.33** · [Live →](https://zhanrock.github.io/Taishan-OS/)
 
 ---
 
@@ -203,7 +203,9 @@ create table tasks (
   name text not null, category text default 'personal', due text,
   priority text default 'med', note text default '',
   done boolean default false, created_on text,
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  failed boolean default false -- set together with done=true: a failed task is
+                                -- closed, so every "!done = pending" filter skips it
 );
 
 create table events (
@@ -351,6 +353,7 @@ create policy "Users own their data" on finance_sync_state for all using (auth.u
 
 | Version | What changed |
 |---|---|
+| v2.9.33 | Tasks can be marked failed: an overdue task shows a FAIL button, which closes it (`done=true, failed=true`) and moves it into a collapsible Failed archive under All Tasks, with a restore button to reopen it. Manual rather than automatic, so extending a deadline stays an option. New column: `tasks.failed boolean default false`. |
 | v2.9.32 | Finance Sync's `sync` job now runs only in the public repo (`if: github.repository == 'Zhanrock/Taishan-OS'`) -- `Taishan-OS-dev` has no Actions secrets, so every scheduled run there failed; tests still run in both. Workflow actions bumped off Node 20 ahead of its retirement: `actions/checkout@v5`, `actions/setup-python@v6`. |
 | v2.9.31 | Finance sync no longer prints merchant names or amounts in its run log (soft-merge and recurring-materialize lines now print counts and row IDs only) -- GitHub Actions logs are public once the repo is public. |
 | v2.9.30 | Security pass: bank-alert merchant names are now HTML-escaped in the transaction list and edit form (previously inserted raw, so a crafted merchant string from a parsed email could inject markup), and `financeEscape` now escapes `&`, `>`, and quotes, not only `<`. Test fixture sender name replaced with a placeholder. |

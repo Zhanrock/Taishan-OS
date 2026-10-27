@@ -60,7 +60,7 @@
 <div class="app" id="main-app">
   <div class="header">
     <div class="header-left">
-      <div class="logo">&#9654; TAISHAN OS v2.9.32 CLOUD</div>
+      <div class="logo">&#9654; TAISHAN OS v2.9.33 CLOUD</div>
       <div class="greeting">Good <span id="timeGreet">morning</span>, <span id="userName">there</span></div>
       <div class="date-line" id="dateDisplay">&#8212;</div>
       <div class="sync-label"><span class="sync-dot" id="syncDot"></span><span id="syncLabel">&#8212;</span></div>
@@ -145,6 +145,10 @@
     <div class="sep"></div>
     <div class="small-section-label">&#128203; All Tasks</div>
     <div class="task-list" id="taskList"><div class="empty-state"><div>&#10022;</div>No tasks yet. Add one above.</div></div>
+    <details class="task-archive" id="failedArchive" style="display:none">
+      <summary class="small-section-label">&#10007; Failed <span id="failedCount"></span></summary>
+      <div class="task-list" id="failedList"></div>
+    </details>
   </div>
 
   <!-- DAILY PLANNER + AUTO-GENERATOR -->
